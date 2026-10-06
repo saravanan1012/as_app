@@ -1,0 +1,77 @@
+{
+  "default_theme_id": "matte_gold",
+  "themes": {
+    "matte_gold": {
+      "label": "Matte Gold",
+      "keywords": ["soft", "elegant", "timeless"],
+      "palette": {
+        "gold-900": "#B89B6A",
+        "gold-700": "#D4AF7C",
+        "gold-500": "#E6CFA8",
+        "gold-300": "#F3E4C8",
+        "gold-100": "#FAF6E8"
+      },
+      "neutrals": {
+        "ink": "#2C2416",
+        "ink-muted": "#5C5346",
+        "surface": "#FFFFFF",
+        "danger": "#B42318",
+        "success": "#3F621A"
+      }
+    },
+    "rose_gold": {
+      "label": "Rose Gold",
+      "keywords": ["romantic", "stylish", "modern"],
+      "palette": {
+        "gold-900": "#B76E79",
+        "gold-700": "#D9898F",
+        "gold-500": "#EFB5B7",
+        "gold-300": "#F7D7D9",
+        "gold-100": "#FFF1E9"
+      },
+      "neutrals": {
+        "ink": "#2C181A",
+        "ink-muted": "#5C4548",
+        "surface": "#FFFFFF",
+        "danger": "#B42318",
+        "success": "#3F621A"
+      }
+    },
+    "deep_gold": {
+      "label": "Deep Gold",
+      "keywords": ["rich", "bold", "premium"],
+      "palette": {
+        "gold-900": "#8B6B2F",
+        "gold-700": "#C9973B",
+        "gold-500": "#E1B547",
+        "gold-300": "#F2D78A",
+        "gold-100": "#FFF4CC"
+      },
+      "neutrals": {
+        "ink": "#1F180A",
+        "ink-muted": "#5C4A28",
+        "surface": "#FFFFFF",
+        "danger": "#B42318",
+        "success": "#3F621A"
+      }
+    },
+    "vibrant_gold": {
+      "label": "Vibrant Gold",
+      "keywords": ["energetic", "modern", "impactful"],
+      "palette": {
+        "gold-900": "#D97706",
+        "gold-700": "#F4B400",
+        "gold-500": "#FFD700",
+        "gold-300": "#FFE680",
+        "gold-100": "#FFF9E6"
+      },
+      "neutrals": {
+        "ink": "#1A1400",
+        "ink-muted": "#5C4D00",
+        "surface": "#FFFFFF",
+        "danger": "#B42318",
+        "success": "#3F621A"
+      }
+    }
+  }
+}

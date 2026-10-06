@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "as_app",
+			"path": "."
+		},
+		{
+			"name": "as_legacy (reference)",
+			"path": "../../learn/rjs/as"
+		}
+	],
+	"settings": {}
+}

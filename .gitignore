@@ -1,0 +1,32 @@
+# Secrets / local env
+.env
+.env.prd
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+scripts/etl/.venv/
+
+# Node / Nuxt
+node_modules/
+frontend/.output/
+frontend/.nuxt/
+frontend/dist/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Storage / uploads
+backend/storage/
+storage/
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/

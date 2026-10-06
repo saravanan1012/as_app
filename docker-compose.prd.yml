@@ -1,0 +1,81 @@
+# Production compose — never use `docker compose down -v` on VPS (destroys Postgres).
+name: as_app
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: as_app_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-as}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-as_app}
+    volumes:
+      - as_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-as} -d ${POSTGRES_DB:-as_app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    mem_limit: 512m
+    cpus: 1.0
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: as_app_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL required}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET required}
+      AUTH_URL: ${AUTH_URL:?AUTH_URL required}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://as.hindupanjang.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      DEFAULT_VENDOR_ID: ${DEFAULT_VENDOR_ID:-1}
+      STORAGE_ROOT: /app/storage
+      SKIP_SEED: ${SKIP_SEED:-0}
+      RAZORPAY_MOCK: ${RAZORPAY_MOCK:-false}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      ENVIRONMENT: production
+      DEBUG: "false"
+    volumes:
+      - as_uploads:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    # Internal only — Nginx or Nuxt proxy reaches api:8000 on the Docker network.
+    expose:
+      - "8000"
+    mem_limit: 768m
+    cpus: 1.0
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NUXT_API_PROXY: http://api:8000
+    container_name: as_app_web
+    restart: unless-stopped
+    environment:
+      NUXT_API_PROXY: http://api:8000
+      NUXT_PUBLIC_API_BASE: /api
+      NUXT_PUBLIC_VENDOR_SLUG: ${NUXT_PUBLIC_VENDOR_SLUG:-as-demo}
+      NUXT_PUBLIC_APP_URL: ${NUXT_PUBLIC_APP_URL:?NUXT_PUBLIC_APP_URL required}
+      HOST: 0.0.0.0
+      PORT: "3000"
+      NODE_ENV: production
+    # Keep host :3001 (legacy Next used the same) so existing Nginx can cut over.
+    ports:
+      - "3001:3000"
+    depends_on:
+      - api
+    mem_limit: 768m
+    cpus: 1.0
+
+volumes:
+  as_pg_data:
+  as_uploads:

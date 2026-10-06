@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: as_app_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: as
+      POSTGRES_PASSWORD: as_dev
+      POSTGRES_DB: as_app
+    # DB not published on host (avoids port conflicts). Reach via Docker network `db:5432`.
+    volumes:
+      - as_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U as -d as_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: as_app_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://as:as_dev@db:5432/as_app
+      AUTH_SECRET: change-me-phase1-dev-secret-min-32-chars!!
+      AUTH_URL: http://localhost:8000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      COOKIE_SECURE: "false"
+      DEFAULT_VENDOR_ID: "1"
+      STORAGE_ROOT: /app/storage
+      RAZORPAY_MOCK: "true"
+      RAZORPAY_KEY_ID: ""
+      RAZORPAY_KEY_SECRET: ""
+    ports:
+      - "8000:8000"
+    volumes:
+      - as_uploads:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NUXT_API_PROXY: http://api:8000
+    container_name: as_app_web
+    restart: unless-stopped
+    environment:
+      NUXT_API_PROXY: http://api:8000
+      NUXT_PUBLIC_API_BASE: /api
+      NUXT_PUBLIC_VENDOR_SLUG: as-demo
+      NUXT_PUBLIC_APP_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  as_pg_data:
+  as_uploads:

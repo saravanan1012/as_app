@@ -1,0 +1,73 @@
+# VPS Nginx for as.hindupanjang.com — same-origin cutover to as_app.
+#
+# Keep proxy_pass on host :3001. docker-compose.prd.yml publishes as_app_web as 3001:3000.
+# Nuxt Nitro proxies /api/** → api:8000 on the Docker network (no Nginx /api split needed).
+#
+# Install / refresh on VPS:
+#   sudo cp deploy/nginx/as.hindupanjang.com.conf.example /etc/nginx/sites-available/as.hindupanjang.com
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Certbot paths below match the live VPS; do not remove SSL lines Certbot manages.
+
+# 1. HTTP - Redirect all traffic to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name as.hindupanjang.com;
+
+    return 301 https://$host$request_uri;
+}
+
+# 2. HTTPS - Production Configuration
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name as.hindupanjang.com;
+
+    # SSL Config (Managed by Certbot)
+    ssl_certificate /etc/letsencrypt/live/as.hindupanjang.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/as.hindupanjang.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Uploads (item images) — align with API limits
+    client_max_body_size 50M;
+
+    access_log /var/log/nginx/as_access.log;
+    error_log  /var/log/nginx/as_error.log;
+
+    location / {
+        # as_app_web (Nuxt). On this VPS 127.0.0.1:3001 is unreliable — use public host IP.
+        proxy_pass http://94.249.213.162:3001;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+
+        # WebSocket / HMR-style upgrades (harmless for Nuxt prod; useful if debugging)
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Streaming / SSR responses
+        proxy_buffering off;
+        proxy_set_header X-Accel-Buffering no;
+
+        # Larger buffers for session cookies (as_session)
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    }
+}

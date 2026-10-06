@@ -1,0 +1,52 @@
+name: Deploy as_app
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: as-app-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy to Ubuntu VPS
+        shell: bash
+        env:
+          SSH_HOST: 94.249.213.162
+          SSH_PORT: "22162"
+          SSH_USER: root
+          DEPLOY_PATH: /root/projects/as_app
+        run: |
+          set -euo pipefail
+          # Pull first so this run executes the latest deploy script from main.
+          ssh -p "${SSH_PORT}" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            "set -euo pipefail
+             cd '${DEPLOY_PATH}'
+             git fetch origin
+             git checkout main
+             git pull --ff-only origin main
+             export DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_BRANCH='main' DEPLOY_ENV_FILE='.env.prd'
+             bash '${DEPLOY_PATH}/scripts/deploy-production.sh'"
