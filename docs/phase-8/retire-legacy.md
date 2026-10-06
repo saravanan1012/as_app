@@ -6,7 +6,7 @@ Do this **after** Phase 8 UAT on `as_app` (Store + admin smoke on the new stack)
 
 1. **Freeze writes** on legacy (maintenance window) if ETL must be final.
 2. Run `scripts/etl/migrate_core.py --apply` (and stock/media as needed).
-3. Deploy `as_app` to `/root/projects/as_app` with `.env.prd`.
+3. Deploy `as_app` to `/root/projects/production/as_app` with `.env.prd`.
 4. Confirm health: `https://as.hindupanjang.com/` and `/api/health`.
 5. Confirm Store + login + one COD order + admin SO list.
 6. **Disable legacy GitHub Actions** on `learn/rjs/as`:

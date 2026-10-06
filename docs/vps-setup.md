@@ -7,7 +7,7 @@ Step-by-step production setup on the VPS for Nuxt + FastAPI + Postgres.
 - Docker + Compose + Nginx already installed
 - Site `as.hindupanjang.com` proxies to host `:3001` (`http://94.249.213.162:3001`)
 - `as_app` is pushed to a git remote (`main`)
-- Deploy path: `/root/projects/as_app`
+- Deploy path: `/root/projects/production/as_app`
 
 Related: [phase-8/README.md](./phase-8/README.md) · [retire-legacy.md](./phase-8/retire-legacy.md) · [runbook.md](./phase-9/runbook.md)
 
@@ -42,8 +42,8 @@ docker exec mysql-db-staging mysqldump -uapp -p'YOUR_PASS' --ssl-mode=DISABLED a
 ## 2. Clone `as_app`
 
 ```bash
-mkdir -p /root/projects/as_app
-cd /root/projects/as_app
+mkdir -p /root/projects/production/as_app
+cd /root/projects/production/as_app
 git clone <YOUR_AS_APP_GIT_URL> .
 # e.g. git clone git@github.com:you/as_app.git .
 git checkout main
@@ -88,7 +88,7 @@ proxy_pass http://94.249.213.162:3001;
 Optional refresh from the repo (keeps Certbot SSL paths):
 
 ```bash
-cp /root/projects/as_app/deploy/nginx/as.hindupanjang.com.conf.example \
+cp /root/projects/production/as_app/deploy/nginx/as.hindupanjang.com.conf.example \
    /etc/nginx/sites-available/as.hindupanjang.com
 nginx -t && systemctl reload nginx
 ```
@@ -109,7 +109,7 @@ Browser / Capacitor
 ## 5. First deploy (build + up + health)
 
 ```bash
-cd /root/projects/as_app
+cd /root/projects/production/as_app
 chmod +x scripts/deploy-production.sh
 bash scripts/deploy-production.sh
 ```
@@ -157,7 +157,7 @@ docker compose -f docker-compose.prd.yml --env-file .env.prd up -d api
 If you need legacy catalog / customers, see [`scripts/etl/README.md`](../scripts/etl/README.md).
 
 ```bash
-cd /root/projects/as_app/scripts/etl
+cd /root/projects/production/as_app/scripts/etl
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
@@ -183,7 +183,7 @@ On the **as_app** repository:
 |------|--------|
 | Workflow | `.github/workflows/deploy.yml` |
 | Secrets | `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS` |
-| Remote path | `/root/projects/as_app` |
+| Remote path | `/root/projects/production/as_app` |
 
 Disable the legacy **Deploy as** workflow on `learn/rjs/as` so it does not fight for `:3001`.
 
@@ -200,7 +200,7 @@ Disable the legacy **Deploy as** workflow on `learn/rjs/as` so it does not fight
 ## Rollback
 
 ```bash
-cd /root/projects/as_app
+cd /root/projects/production/as_app
 docker compose -f docker-compose.prd.yml --env-file .env.prd stop
 
 cd /root/projects/as

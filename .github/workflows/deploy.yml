@@ -35,7 +35,7 @@ jobs:
           SSH_HOST: 94.249.213.162
           SSH_PORT: "22162"
           SSH_USER: root
-          DEPLOY_PATH: /root/projects/as_app
+          DEPLOY_PATH: /root/projects/production/as_app
         run: |
           set -euo pipefail
           # Pull first so this run executes the latest deploy script from main.

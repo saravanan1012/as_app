@@ -17,7 +17,7 @@ docker compose -f docker-compose.prd.yml --env-file .env.prd ps
 ## Deploy
 
 ```bash
-cd /root/projects/as_app
+cd /root/projects/production/as_app
 bash scripts/deploy-production.sh
 # or: push to main → GitHub Actions Deploy as_app
 ```

@@ -10,7 +10,7 @@ Production deploy path for Nuxt + FastAPI + Postgres. Replaces legacy Next/MySQL
 | `.env.prd.example` | Env template → copy to VPS as `.env.prd` |
 | `deploy/nginx/as.hindupanjang.com.conf.example` | Same-origin Nginx notes |
 | `scripts/deploy-production.sh` | Build/up + health (`/` + `/api/health`) |
-| `.github/workflows/deploy.yml` | SSH deploy to `/root/projects/as_app` |
+| `.github/workflows/deploy.yml` | SSH deploy to `/root/projects/production/as_app` |
 | `Makefile` | `make up` / `up-prd` / `api-test` / `etl-dry` |
 | `scripts/etl/` | MySQL → Postgres core migration helper |
 | `frontend/capacitor.config.ts` | Default server URL → production HTTPS |
@@ -21,7 +21,7 @@ Production deploy path for Nuxt + FastAPI + Postgres. Replaces legacy Next/MySQL
 
 ```bash
 # Short path (details in vps-setup.md)
-mkdir -p /root/projects/as_app && cd /root/projects/as_app
+mkdir -p /root/projects/production/as_app && cd /root/projects/production/as_app
 git clone <as_app-remote> .
 cp .env.prd.example .env.prd   # edit secrets
 bash scripts/deploy-production.sh

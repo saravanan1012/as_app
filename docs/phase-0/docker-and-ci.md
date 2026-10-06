@@ -72,7 +72,7 @@ jobs:
           SSH_HOST: <vps>
           SSH_PORT: <port>
           SSH_USER: root
-          DEPLOY_PATH: /root/projects/as_app   # NEW path
+          DEPLOY_PATH: /root/projects/production/as_app   # NEW path
         run: |
           ssh ... "cd $DEPLOY_PATH && git pull &&
             bash scripts/deploy-production.sh"
@@ -91,7 +91,7 @@ Optional later job: **CI on PR** — `backend` pytest + ruff; `frontend` lint/bu
 
 | Item | Legacy | New |
 |------|--------|-----|
-| Repo path on VPS | `/root/projects/as` | `/root/projects/as_app` |
+| Repo path on VPS | `/root/projects/as` | `/root/projects/production/as_app` |
 | App container | Next standalone :3000 | Nuxt + FastAPI |
 | DB | MySQL 8.4 | PostgreSQL 16 |
 | Workflow | `Deploy as` | `Deploy as_app` |
