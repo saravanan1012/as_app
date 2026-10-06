@@ -119,6 +119,7 @@ onBeforeUnmount(() => {
             :src="current.src"
             :poster="current.poster"
             class="landing-lightbox__media"
+            :class="{ 'landing-lightbox__media--portrait': current.span === 'portrait' }"
             controls
             playsinline
             autoplay

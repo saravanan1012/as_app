@@ -25,6 +25,7 @@ function onVideoLeave(e: Event) {
 }
 
 function spanClass(item: LandingMedia) {
+  if (item.span === 'portrait') return 'landing-mosaic__cell--portrait'
   if (item.span === 'tall') return 'landing-mosaic__cell--tall'
   if (item.span === 'wide') return 'landing-mosaic__cell--wide'
   return 'landing-mosaic__cell--square'

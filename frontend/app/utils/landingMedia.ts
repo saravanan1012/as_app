@@ -4,8 +4,8 @@ export type LandingMedia = {
   src: string
   alt: string
   poster?: string
-  /** Mosaic span hint: tall | wide | square */
-  span?: 'tall' | 'wide' | 'square'
+  /** Mosaic span hint: tall | wide | square | portrait (9:16) */
+  span?: 'tall' | 'wide' | 'square' | 'portrait'
 }
 
 /** Hero background — brand story reel */
@@ -49,7 +49,7 @@ export const landingGallery: LandingMedia[] = [
     src: '/videos/drawstring-bag.mp4',
     poster: '/images/cotton-pouch.jpg',
     alt: 'Drawstring bag product video',
-    span: 'wide'
+    span: 'portrait'
   },
   {
     id: 'anion-a',

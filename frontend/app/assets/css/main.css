@@ -154,6 +154,15 @@ body {
   grid-row: span 3;
 }
 
+/* 9:16 vertical video / stills */
+.landing-mosaic__cell--portrait {
+  grid-column: span 1;
+  grid-row: span 3;
+  aspect-ratio: 9 / 16;
+  height: auto;
+  max-height: none;
+}
+
 @media (min-width: 640px) {
   .landing-mosaic__cell--square {
     grid-column: span 2;
@@ -166,6 +175,11 @@ body {
   .landing-mosaic__cell--tall {
     grid-column: span 2;
     grid-row: span 3;
+  }
+  .landing-mosaic__cell--portrait {
+    grid-column: span 2;
+    grid-row: span 4;
+    aspect-ratio: 9 / 16;
   }
 }
 
@@ -259,6 +273,14 @@ body {
   max-height: 78vh;
   object-fit: contain;
   border: 1px solid rgba(230, 207, 168, 0.35);
+}
+
+.landing-lightbox__media--portrait {
+  width: auto;
+  max-width: min(96vw, calc(78vh * 9 / 16));
+  max-height: 78vh;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
 }
 
 .landing-lightbox__caption {
