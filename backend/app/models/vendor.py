@@ -29,13 +29,23 @@ DEFAULT_VENDOR_SETTINGS: dict[str, Any] = {
     },
     "payments": {"razorpay_key_id": "", "razorpay_key_secret_ref": ""},
     "shipping": {
-        "flat_rate": 0,
-        "free_over": None,
-        "qty_tiers": [],
+        "ecommerce": {
+            "enabled": True,
+            "flat_rate": 80,
+            "free_over_enabled": True,
+            "free_over": 500,
+        },
+        "b2b": {
+            "qty_tiers": [
+                {"max_qty": 2, "charge": 80},
+                {"max_qty": 9, "charge": 40},
+                {"max_qty": None, "charge": 0},
+            ],
+        },
         "couriers": ["AKR_PARCEL", "MARUTHI_PARCEL"],
     },
     "limits": {"max_items": 5000, "max_staff": 20},
-    "tax": {"gstin": "", "state_code": ""},
+    "tax": {"gstin": "", "state_code": "TN", "gst_enabled": True},
     "locale": {"currency": "INR", "timezone": "Asia/Kolkata"},
 }
 

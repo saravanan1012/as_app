@@ -20,6 +20,31 @@ const { data, error } = await useAsyncData(() => `product-${id.value}`, () =>
 
 const product = computed(() => data.value?.data)
 
+const { data: reviewsRes } = await useAsyncData(
+  () => `product-reviews-${id.value}`,
+  async () => {
+    if (!vendor.storeEnabled) return null
+    try {
+      return await api<Array<{
+        id: number
+        rating: number
+        comment?: string | null
+        is_verified_purchase?: boolean
+        created_at?: string
+      }>>(`/store/products/${id.value}/reviews`)
+    } catch {
+      return null
+    }
+  }
+)
+
+const reviews = computed(() => reviewsRes.value?.data || [])
+const avgRating = computed(() => {
+  if (!reviews.value.length) return null
+  const sum = reviews.value.reduce((acc, r) => acc + Number(r.rating || 0), 0)
+  return sum / reviews.value.length
+})
+
 function addToCart() {
   if (!product.value) return
   cart.add({
@@ -29,6 +54,12 @@ function addToCart() {
     primary_image: product.value.primary_image
   })
   navigateTo('/store/cart')
+}
+
+function stars(n: number | null) {
+  if (n == null) return ''
+  const full = Math.round(n)
+  return '★'.repeat(full) + '☆'.repeat(Math.max(0, 5 - full))
 }
 </script>
 
@@ -55,14 +86,11 @@ function addToCart() {
       v-else-if="product"
       class="grid gap-10 lg:grid-cols-2 lg:gap-16"
     >
-      <div class="aspect-square bg-gradient-to-br from-gold-300 via-gold-500 to-gold-700">
-        <img
-          v-if="product.primary_image || product.images?.[0]?.path"
-          :src="product.primary_image || product.images?.[0]?.path"
-          :alt="product.name"
-          class="h-full w-full object-cover"
-        >
-      </div>
+      <ProductImageSlider
+        :images="product.images || []"
+        :primary="product.primary_image"
+        :alt="product.name"
+      />
       <div>
         <p class="text-sm uppercase tracking-[0.2em] text-gold-800">
           {{ vendor.brandName }}
@@ -70,6 +98,17 @@ function addToCart() {
         <h1 class="font-display mt-2 text-4xl text-ink sm:text-5xl">
           {{ product.name }}
         </h1>
+        <p
+          v-if="avgRating != null"
+          class="mt-3 flex flex-wrap items-center gap-2 text-gold-800"
+        >
+          <span
+            class="text-lg tracking-tight"
+            aria-hidden="true"
+          >{{ stars(avgRating) }}</span>
+          <span class="text-sm font-medium text-ink">{{ avgRating.toFixed(1) }}</span>
+          <span class="text-sm text-ink-muted">({{ reviews.length }} review{{ reviews.length === 1 ? '' : 's' }})</span>
+        </p>
         <p class="mt-4 text-2xl font-semibold text-gold-800">
           ₹{{ Number(product.sale_price).toFixed(0) }}
         </p>
@@ -103,6 +142,35 @@ function addToCart() {
             Enquire
           </UButton>
         </div>
+
+        <section
+          v-if="reviews.length"
+          class="mt-12 border-t border-gold-300/50 pt-8"
+        >
+          <h2 class="font-display text-2xl text-ink">
+            Customer reviews
+          </h2>
+          <ul class="mt-6 space-y-4">
+            <li
+              v-for="r in reviews"
+              :key="r.id"
+              class="rounded-lg border border-gold-300/40 bg-gold-100/40 px-4 py-3"
+            >
+              <p class="text-sm text-gold-800" aria-hidden="true">
+                {{ stars(r.rating) }}
+              </p>
+              <p class="mt-1 text-sm leading-relaxed text-ink-muted">
+                {{ r.comment || 'No comment.' }}
+              </p>
+              <p
+                v-if="r.is_verified_purchase"
+                class="mt-1 text-xs uppercase tracking-wide text-ink-muted"
+              >
+                Verified purchase
+              </p>
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
   </div>

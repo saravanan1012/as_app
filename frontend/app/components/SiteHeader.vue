@@ -10,7 +10,7 @@ const links = computed(() => {
     { label: 'Contact', to: '/contact' }
   ]
   if (vendor.storeEnabled) {
-    items.splice(1, 0, { label: 'Store', to: '/store' })
+    items.splice(1, 0, { label: 'Online Store', to: '/store' })
   }
   return items
 })

@@ -13,10 +13,25 @@ const form = reactive({
   is_sellable: true,
   is_online_sale: false,
   sale_price_includes_gst: true,
+  tax_category_id: null as number | null,
   status: 'ACTIVE'
 })
 const error = ref('')
 const loading = ref(false)
+
+const { data: taxCatsRes } = await useAdminAsyncData('new-item-tax-categories', () =>
+  api<Array<Record<string, any>>>('/tax-categories')
+)
+const taxOptions = computed(() => {
+  const rows = Array.isArray(taxCatsRes.value?.data) ? taxCatsRes.value!.data : []
+  return [
+    { label: 'None (0%)', value: null as number | null },
+    ...rows.map((t: any) => ({
+      label: `${t.code} — ${t.gst_rate}%`,
+      value: t.id as number
+    }))
+  ]
+})
 
 async function submit() {
   error.value = ''
@@ -82,6 +97,13 @@ async function submit() {
       <UFormField label="Unit">
         <UInput
           v-model="form.unit_of_measure"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="Tax category (GST %)">
+        <USelect
+          v-model="form.tax_category_id"
+          :items="taxOptions"
           class="w-full"
         />
       </UFormField>

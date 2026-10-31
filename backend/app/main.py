@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api import (
     auth,
@@ -73,6 +75,10 @@ def create_app() -> FastAPI:
     app.include_router(b2b.router, prefix=prefix)
     app.include_router(party_prices.router, prefix=prefix)
     app.include_router(uploads.router, prefix=prefix)
+
+    media_root = Path(settings.storage_root).resolve()
+    media_root.mkdir(parents=True, exist_ok=True)
+    app.mount("/api/media", StaticFiles(directory=str(media_root)), name="media")
 
     return app
 

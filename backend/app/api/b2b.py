@@ -287,7 +287,10 @@ def preview(
         place_state=body.shipping_state,
     )
     ship = shipping_charge_for_qty(
-        settings, total_qty=total_qty, subtotal=float(agg["sum_gross"])
+        settings,
+        total_qty=total_qty,
+        subtotal=float(agg["sum_gross"]),
+        channel="b2b",
     )
     total = round_money(float(agg["sum_net"]) + ship)
     return success(
@@ -327,7 +330,9 @@ def create_order(
     vendor = db.get(Vendor, vendor_id)
     settings = vendor.settings if vendor and isinstance(vendor.settings, dict) else {}
     subtotal = sum(float(x["unit_price"]) * int(x["quantity"]) for x in lines)
-    ship = shipping_charge_for_qty(settings, total_qty=total_qty, subtotal=subtotal)
+    ship = shipping_charge_for_qty(
+        settings, total_qty=total_qty, subtotal=subtotal, channel="b2b"
+    )
     order_code = f"SO-B2B-{int(time.time() * 1000)}-{uuid.uuid4().hex[:6]}"
     payload = {
         "order_code": order_code,

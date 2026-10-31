@@ -77,6 +77,14 @@ class TaxIn(BaseModel):
     description: str | None = None
 
 
+class TaxPatch(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    gst_rate: float | None = None
+    hsn_sac: str | None = None
+    description: str | None = None
+
+
 @router.get("/items")
 def list_items(
     search: str | None = None,
@@ -226,3 +234,21 @@ def create_tax(body: TaxIn, ctx: tuple[AuthUser, int] = Depends(perm("catalog.it
     db.commit()
     db.refresh(t)
     return success("Created", row(t, ["id", "code", "name", "gst_rate", "hsn_sac"]), status_code=201)
+
+
+@router.patch("/tax-categories/{tax_id}")
+def patch_tax(
+    tax_id: int,
+    body: TaxPatch,
+    ctx: tuple[AuthUser, int] = Depends(perm("catalog.items.write")),
+    db: Session = Depends(get_db),
+):
+    _, vendor_id = ctx
+    t = db.get(TaxCategory, tax_id)
+    if not t or t.vendor_id != vendor_id:
+        return error("Tax category not found", status_code=404)
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(t, k, v)
+    db.commit()
+    db.refresh(t)
+    return success("Updated", row(t, ["id", "code", "name", "gst_rate", "hsn_sac", "description"]))

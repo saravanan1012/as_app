@@ -13,7 +13,7 @@ from app.config import get_settings
 from app.core.responses import error, success
 from app.core.security import create_access_token, hash_password
 from app.db import get_db
-from app.models import Customer, Item, ItemImage, User, Vendor
+from app.models import Customer, CustomerAddress, Item, ItemImage, User, Vendor
 from app.models.ecommerce import ItemReview
 from app.models.orders import SaleOrder, SaleOrderDetail
 from app.services.checkout import (
@@ -138,6 +138,8 @@ def store_register(
 
 @router.get("/meta")
 def store_meta(vendor: Vendor = Depends(require_store_vendor)):
+    from app.services.pricing import ecommerce_shipping_public
+
     settings = vendor.settings if isinstance(vendor.settings, dict) else {}
     branding = settings.get("branding") or {}
     features = settings.get("features") or {}
@@ -156,6 +158,7 @@ def store_meta(vendor: Vendor = Depends(require_store_vendor)):
                 "razorpay": bool(features.get("razorpay", True)),
                 "reviews": bool(features.get("reviews", True)),
             },
+            "shipping": ecommerce_shipping_public(settings),
             "currency": vendor.currency,
         },
     )
@@ -259,6 +262,34 @@ def validate_store_offer(
     except OfferError as e:
         return error(str(e), status_code=400)
     return success("Offer valid", result)
+
+
+@router.post("/cart/preview")
+def store_cart_preview(
+    body: CheckoutIn,
+    vendor: Vendor = Depends(require_store_vendor),
+    user: AuthUser | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """Public cart totals for checkout UI (items + delivery + total)."""
+    from app.services.checkout import preview_store_cart
+    from app.services.pricing import ecommerce_shipping_public
+
+    try:
+        place_state = body.address.state if body.address else None
+        data = preview_store_cart(
+            db,
+            vendor=vendor,
+            items=[i.model_dump() for i in body.items],
+            offer_code=body.offer_code,
+            user_id=user.id if user else None,
+            place_state=place_state,
+        )
+    except CheckoutError as e:
+        return error(str(e), status_code=400)
+    settings = vendor.settings if isinstance(vendor.settings, dict) else {}
+    data["shipping_rules"] = ecommerce_shipping_public(settings)
+    return success("Cart preview", data)
 
 
 @router.post("/checkout/cod")
@@ -479,13 +510,79 @@ def create_review(
     )
 
 
+@router.get("/shipping-address")
+def my_shipping_address(
+    ctx: tuple[AuthUser, Vendor] = Depends(require_store_user),
+    db: Session = Depends(get_db),
+):
+    """Return last saved shipping address for checkout prefill."""
+    user, vendor = ctx
+    customer = db.scalar(
+        select(Customer).where(Customer.vendor_id == vendor.id, Customer.user_id == user.id)
+    )
+    if not customer:
+        return success(
+            "Shipping address",
+            {
+                "street": None,
+                "city": None,
+                "state": None,
+                "zip": None,
+                "phone": None,
+                "name": user.name,
+                "saved": False,
+            },
+        )
+
+    addr = db.scalar(
+        select(CustomerAddress)
+        .where(
+            CustomerAddress.vendor_id == vendor.id,
+            CustomerAddress.customer_id == customer.id,
+            CustomerAddress.status == "ACTIVE",
+        )
+        .order_by(CustomerAddress.id.desc())
+        .limit(1)
+    )
+    last_so = db.scalar(
+        select(SaleOrder)
+        .where(SaleOrder.vendor_id == vendor.id, SaleOrder.customer_id == customer.id)
+        .order_by(SaleOrder.id.desc())
+        .limit(1)
+    )
+
+    street = (addr.street if addr else None) or (last_so.shipping_street if last_so else None)
+    city = (addr.city if addr else None) or (last_so.shipping_city if last_so else None)
+    state = (addr.state if addr else None) or (last_so.shipping_state if last_so else None) or "TN"
+    zip_code = (addr.zip if addr else None) or (last_so.shipping_zip if last_so else None)
+    phone = customer.phone or (last_so.shipping_phone if last_so else None)
+    name = (
+        (last_so.shipping_name if last_so and last_so.shipping_name else None)
+        or customer.name
+        or user.name
+    )
+    saved = bool(street or city or zip_code)
+
+    return success(
+        "Shipping address",
+        {
+            "street": street,
+            "city": city,
+            "state": state,
+            "zip": zip_code,
+            "phone": phone,
+            "name": name,
+            "saved": saved,
+        },
+    )
+
+
 @router.get("/my-orders")
 def my_orders(
     ctx: tuple[AuthUser, Vendor] = Depends(require_account_user),
     db: Session = Depends(get_db),
 ):
     user, vendor = ctx
-    from app.models import Customer
     from app.services.pricing import courier_label
 
     customer = db.scalar(

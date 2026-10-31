@@ -288,7 +288,7 @@ def test_demo_seed_catalog_present(client):
             db.scalars(
                 select(Item).where(
                     Item.vendor_id == v.id,
-                    Item.code.like("DEMO-%"),
+                    Item.code.like("NAPKIN-%"),
                 )
             ).all()
         )

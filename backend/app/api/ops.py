@@ -39,11 +39,25 @@ class ActivityIn(BaseModel):
     due_at: datetime | None = None
 
 
+class EcommerceShippingIn(BaseModel):
+    enabled: bool | None = None
+    flat_rate: float | None = None
+    free_over_enabled: bool | None = None
+    free_over: float | None = None
+
+
+class B2bShippingIn(BaseModel):
+    qty_tiers: list[dict] | None = None
+
+
 class ShippingSettingsIn(BaseModel):
+    ecommerce: EcommerceShippingIn | None = None
+    b2b: B2bShippingIn | None = None
+    couriers: list[str] | None = None
+    # Legacy flat fields still accepted and mapped into ecommerce / b2b
     flat_rate: float | None = None
     free_over: float | None = None
     qty_tiers: list[dict] | None = None
-    couriers: list[str] | None = None
 
 
 @router.get("/vendor-settings/shipping")
@@ -51,11 +65,13 @@ def get_shipping_settings(
     ctx: tuple[AuthUser, int] = Depends(perm("dashboard.read")),
     db: Session = Depends(get_db),
 ):
+    from app.services.pricing import normalize_shipping
+
     _, vendor_id = ctx
     vendor = db.get(Vendor, vendor_id)
     if not vendor:
         return error("Vendor not found", status_code=404)
-    shipping = (vendor.settings or {}).get("shipping") or {}
+    shipping = normalize_shipping((vendor.settings or {}).get("shipping") or {})
     return success("Shipping settings", shipping)
 
 
@@ -65,23 +81,109 @@ def patch_shipping_settings(
     ctx: tuple[AuthUser, int] = Depends(perm("customers.manage")),
     db: Session = Depends(get_db),
 ):
-    """Admin shipping charge + courier allowlist (ADMIN typically has customers.manage)."""
-    user, vendor_id = ctx
+    """Admin: Online Store (amount-based) + B2B qty tiers + couriers."""
+    from app.services.pricing import normalize_shipping
+
+    _, vendor_id = ctx
     vendor = db.get(Vendor, vendor_id)
     if not vendor:
         return error("Vendor not found", status_code=404)
     settings = deepcopy(vendor.settings or {})
-    shipping = dict(settings.get("shipping") or {})
+    shipping = normalize_shipping(settings.get("shipping") or {})
     data = body.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        shipping[k] = v
-    if "couriers" not in shipping or not shipping["couriers"]:
+
+    if "ecommerce" in data and data["ecommerce"] is not None:
+        eco = dict(shipping.get("ecommerce") or {})
+        for k, v in data["ecommerce"].items():
+            if v is not None or k in ("free_over",):
+                eco[k] = v
+        shipping["ecommerce"] = eco
+    if "b2b" in data and data["b2b"] is not None:
+        b2b = dict(shipping.get("b2b") or {})
+        if data["b2b"].get("qty_tiers") is not None:
+            b2b["qty_tiers"] = data["b2b"]["qty_tiers"]
+        shipping["b2b"] = b2b
+    if "couriers" in data and data["couriers"] is not None:
+        shipping["couriers"] = data["couriers"]
+
+    # Legacy field mapping
+    eco = dict(shipping.get("ecommerce") or {})
+    if "flat_rate" in data and data["flat_rate"] is not None:
+        eco["flat_rate"] = data["flat_rate"]
+    if "free_over" in data:
+        eco["free_over"] = data["free_over"]
+        if data["free_over"] is not None:
+            eco["free_over_enabled"] = True
+    shipping["ecommerce"] = eco
+    if "qty_tiers" in data and data["qty_tiers"] is not None:
+        shipping["b2b"] = {**(shipping.get("b2b") or {}), "qty_tiers": data["qty_tiers"]}
+
+    if not shipping.get("couriers"):
         shipping["couriers"] = ["AKR_PARCEL", "MARUTHI_PARCEL"]
+
     settings["shipping"] = shipping
     vendor.settings = settings
     flag_modified(vendor, "settings")
     db.commit()
-    return success("Updated", shipping)
+    return success("Updated", normalize_shipping(shipping))
+
+
+class TaxSettingsIn(BaseModel):
+    gst_enabled: bool | None = None
+    gstin: str | None = None
+    state_code: str | None = None
+
+
+def _normalize_tax(vendor: Vendor) -> dict:
+    settings = vendor.settings if isinstance(vendor.settings, dict) else {}
+    tax = dict(settings.get("tax") or {})
+    return {
+        "gst_enabled": bool(tax.get("gst_enabled", True)),
+        "gstin": (tax.get("gstin") or vendor.gstin or "") or "",
+        "state_code": (tax.get("state_code") or vendor.state_code or "TN") or "TN",
+    }
+
+
+@router.get("/vendor-settings/tax")
+def get_tax_settings(
+    ctx: tuple[AuthUser, int] = Depends(perm("dashboard.read")),
+    db: Session = Depends(get_db),
+):
+    _, vendor_id = ctx
+    vendor = db.get(Vendor, vendor_id)
+    if not vendor:
+        return error("Vendor not found", status_code=404)
+    return success("Tax settings", _normalize_tax(vendor))
+
+
+@router.patch("/vendor-settings/tax")
+def patch_tax_settings(
+    body: TaxSettingsIn,
+    ctx: tuple[AuthUser, int] = Depends(perm("customers.manage")),
+    db: Session = Depends(get_db),
+):
+    """Admin GST profile: enable store GST display, GSTIN, place-of-supply state."""
+    _, vendor_id = ctx
+    vendor = db.get(Vendor, vendor_id)
+    if not vendor:
+        return error("Vendor not found", status_code=404)
+    settings = deepcopy(vendor.settings or {})
+    tax = dict(settings.get("tax") or {})
+    data = body.model_dump(exclude_unset=True)
+    if "gst_enabled" in data and data["gst_enabled"] is not None:
+        tax["gst_enabled"] = bool(data["gst_enabled"])
+    if "gstin" in data:
+        tax["gstin"] = (data["gstin"] or "").strip().upper() or ""
+        vendor.gstin = tax["gstin"] or None
+    if "state_code" in data and data["state_code"] is not None:
+        code = str(data["state_code"]).strip().upper()[:2]
+        tax["state_code"] = code
+        vendor.state_code = code or vendor.state_code
+    settings["tax"] = tax
+    vendor.settings = settings
+    flag_modified(vendor, "settings")
+    db.commit()
+    return success("Updated", _normalize_tax(vendor))
 
 
 @router.get("/transactions")

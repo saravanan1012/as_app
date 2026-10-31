@@ -12,7 +12,33 @@ const vendor = useVendorStore()
       <p class="font-display text-base text-ink">
         {{ vendor.brandName }}
       </p>
-      <p class="mt-1">
+      <nav class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+        <NuxtLink
+          to="/privacy"
+          class="transition-colors hover:text-ink"
+        >
+          Privacy
+        </NuxtLink>
+        <NuxtLink
+          to="/terms"
+          class="transition-colors hover:text-ink"
+        >
+          Terms
+        </NuxtLink>
+        <NuxtLink
+          to="/refund"
+          class="transition-colors hover:text-ink"
+        >
+          Refunds
+        </NuxtLink>
+        <NuxtLink
+          to="/contact"
+          class="transition-colors hover:text-ink"
+        >
+          Contact
+        </NuxtLink>
+      </nav>
+      <p class="mt-3">
         Crafted with care · {{ new Date().getFullYear() }}
       </p>
     </footer>

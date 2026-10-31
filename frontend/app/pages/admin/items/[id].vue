@@ -17,12 +17,28 @@ const form = reactive({
   cost_price: 0,
   is_online_sale: false,
   is_sellable: true,
+  sale_price_includes_gst: true,
+  tax_category_id: null as number | null,
   status: 'ACTIVE',
   description: ''
 })
 const error = ref('')
 const saving = ref(false)
 const priceSaving = ref(false)
+
+const { data: taxCatsRes } = await useAdminAsyncData('item-tax-categories', () =>
+  api<Array<Record<string, any>>>('/tax-categories')
+)
+const taxOptions = computed(() => {
+  const rows = Array.isArray(taxCatsRes.value?.data) ? taxCatsRes.value!.data : []
+  return [
+    { label: 'None (0%)', value: null as number | null },
+    ...rows.map((t: any) => ({
+      label: `${t.code} — ${t.gst_rate}%`,
+      value: t.id as number
+    }))
+  ]
+})
 
 type PriceRow = { party_type: string, mode: string, value: number }
 const priceRows = reactive<PriceRow[]>([
@@ -43,6 +59,8 @@ watch(item, (i) => {
   form.cost_price = Number(i.cost_price)
   form.is_online_sale = !!i.is_online_sale
   form.is_sellable = !!i.is_sellable
+  form.sale_price_includes_gst = i.sale_price_includes_gst !== false
+  form.tax_category_id = i.tax_category_id ?? null
   form.status = i.status
   form.description = i.description || ''
 }, { immediate: true })
@@ -149,6 +167,13 @@ async function savePrices() {
           class="w-full"
         />
       </UFormField>
+      <UFormField label="Tax category (GST %)">
+        <USelect
+          v-model="form.tax_category_id"
+          :items="taxOptions"
+          class="w-full"
+        />
+      </UFormField>
       <div class="flex flex-wrap gap-4 text-sm">
         <label class="flex items-center gap-2">
           <input
@@ -163,6 +188,13 @@ async function savePrices() {
             type="checkbox"
           >
           Online (Store)
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            v-model="form.sale_price_includes_gst"
+            type="checkbox"
+          >
+          Price includes GST
         </label>
       </div>
       <p

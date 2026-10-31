@@ -48,18 +48,19 @@ async def upload_item_image(
     dest = dest_dir / fname
     dest.write_bytes(data)
     rel_path = f"{vendor_id}/items/{item_id}/{fname}"
+    media_url = f"/api/media/{rel_path}"
 
     if is_primary:
         for img in db.scalars(
             select(ItemImage).where(ItemImage.item_id == item_id, ItemImage.vendor_id == vendor_id)
         ).all():
             img.is_primary = False
-        item.primary_image = rel_path
+        item.primary_image = media_url
 
     img = ItemImage(
         vendor_id=vendor_id,
         item_id=item_id,
-        path=rel_path,
+        path=media_url,
         sort_order=0,
         is_primary=is_primary,
     )

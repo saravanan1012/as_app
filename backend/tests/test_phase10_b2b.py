@@ -2,7 +2,11 @@
 
 import uuid
 
-from app.services.pricing import resolve_trade_price, shipping_charge_for_qty
+from app.services.pricing import (
+    resolve_trade_price,
+    shipping_charge_ecommerce,
+    shipping_charge_for_qty,
+)
 
 
 def _uid():
@@ -25,16 +29,55 @@ def test_resolve_trade_price_modes():
 def test_shipping_qty_tiers():
     settings = {
         "shipping": {
+            "b2b": {
+                "qty_tiers": [
+                    {"max_qty": 2, "charge": 80},
+                    {"max_qty": 9, "charge": 40},
+                    {"max_qty": None, "charge": 0},
+                ]
+            }
+        }
+    }
+    assert shipping_charge_for_qty(settings, total_qty=1, subtotal=100, channel="b2b") == 80.0
+    assert shipping_charge_for_qty(settings, total_qty=5, subtotal=100, channel="b2b") == 40.0
+    assert shipping_charge_for_qty(settings, total_qty=10, subtotal=100, channel="b2b") == 0.0
+
+
+def test_shipping_ecommerce_free_over():
+    settings = {
+        "shipping": {
+            "ecommerce": {
+                "enabled": True,
+                "flat_rate": 80,
+                "free_over_enabled": True,
+                "free_over": 500,
+            }
+        }
+    }
+    assert shipping_charge_ecommerce(settings, subtotal=200) == 80.0
+    assert shipping_charge_ecommerce(settings, subtotal=500) == 0.0
+    settings["shipping"]["ecommerce"]["free_over_enabled"] = False
+    assert shipping_charge_ecommerce(settings, subtotal=900) == 80.0
+    settings["shipping"]["ecommerce"]["enabled"] = False
+    assert shipping_charge_ecommerce(settings, subtotal=100) == 0.0
+
+
+def test_shipping_legacy_qty_tiers_still_b2b():
+    """Legacy top-level qty_tiers map to B2B via normalize_shipping."""
+    settings = {
+        "shipping": {
             "qty_tiers": [
                 {"max_qty": 2, "charge": 80},
                 {"max_qty": 9, "charge": 40},
                 {"max_qty": None, "charge": 0},
-            ]
+            ],
+            "flat_rate": 50,
+            "free_over": 500,
         }
     }
-    assert shipping_charge_for_qty(settings, total_qty=1, subtotal=100) == 80.0
-    assert shipping_charge_for_qty(settings, total_qty=5, subtotal=100) == 40.0
-    assert shipping_charge_for_qty(settings, total_qty=10, subtotal=100) == 0.0
+    assert shipping_charge_for_qty(settings, total_qty=1, subtotal=100, channel="b2b") == 80.0
+    assert shipping_charge_ecommerce(settings, subtotal=100) == 50.0
+    assert shipping_charge_ecommerce(settings, subtotal=500) == 0.0
 
 
 def test_retailer_hierarchy(client):

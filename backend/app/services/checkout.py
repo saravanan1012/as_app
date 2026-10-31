@@ -40,12 +40,12 @@ def shipping_charge(
     free_shipping: bool = False,
     total_qty: int | None = None,
 ) -> float:
-    from app.services.pricing import shipping_charge_for_qty
+    """Ecommerce / direct customer shipping (amount-based)."""
+    from app.services.pricing import shipping_charge_ecommerce
 
     settings = vendor.settings if isinstance(vendor.settings, dict) else {}
-    return shipping_charge_for_qty(
+    return shipping_charge_ecommerce(
         settings,
-        total_qty=int(total_qty or 0),
         subtotal=subtotal,
         free_shipping=free_shipping,
     )
@@ -159,6 +159,131 @@ def _load_cart_lines(
         )
         subtotal = round_money(subtotal + qty * unit)
     return lines, subtotal
+
+
+def preview_store_cart(
+    db: Session,
+    *,
+    vendor: Vendor,
+    items: list[dict[str, Any]],
+    offer_code: str | None = None,
+    user_id: int | None = None,
+    place_state: str | None = None,
+) -> dict[str, Any]:
+    """Compute ecommerce cart split without creating an order."""
+    from app.core.gst import aggregate_sale_lines
+    from app.models import TaxCategory
+    from app.services.offers_eval import OfferError, validate_offer
+    from app.services.pricing import ecommerce_shipping_public
+
+    lines, subtotal = _load_cart_lines(
+        db,
+        vendor_id=vendor.id,
+        items=items,
+        default_location_id=vendor.default_location_id,
+    )
+    offer = None
+    party_type = "CUSTOMER"
+    customer_id = None
+    if user_id:
+        cust = db.scalar(
+            select(Customer).where(Customer.vendor_id == vendor.id, Customer.user_id == user_id)
+        )
+        if cust:
+            party_type = cust.party_type or "CUSTOMER"
+            customer_id = cust.id
+    if offer_code:
+        try:
+            offer = validate_offer(
+                db,
+                vendor_id=vendor.id,
+                code=offer_code,
+                subtotal=subtotal,
+                party_type=party_type,
+                sales_channel="ECOMMERCE",
+                customer_id=customer_id,
+                item_ids=[int(x["item_id"]) for x in lines],
+            )
+        except OfferError as e:
+            raise CheckoutError(str(e)) from e
+        lines = allocate_order_discount_to_lines(lines, offer["discount_amount"])
+
+    discount = float(offer["discount_amount"]) if offer else 0.0
+    total_qty = sum(int(x.get("quantity") or 0) for x in lines)
+    ship = shipping_charge(
+        vendor,
+        round_money(max(0.0, subtotal - discount)),
+        free_shipping=bool(offer and offer.get("free_shipping")),
+        total_qty=total_qty,
+    )
+    payable_subtotal = round_money(max(0.0, subtotal - discount))
+    total = round_money(payable_subtotal + ship)
+    settings = vendor.settings if isinstance(vendor.settings, dict) else {}
+    rules = ecommerce_shipping_public(settings)
+    free_over = rules.get("free_over")
+    free_applied = bool(
+        ship == 0
+        and rules.get("enabled")
+        and rules.get("free_over_enabled")
+        and free_over is not None
+        and payable_subtotal >= float(free_over)
+    )
+
+    tax_cfg = dict(settings.get("tax") or {})
+    gst_enabled = bool(tax_cfg.get("gst_enabled", True))
+    vendor_state = (vendor.state_code or tax_cfg.get("state_code") or "TN") or "TN"
+    place = (place_state or vendor_state or "TN").strip().upper()[:2] or vendor_state
+    same_state = vendor_state.strip().upper() == place
+
+    item_ids = [int(x["item_id"]) for x in lines]
+    gst_by_item: dict[int, dict] = {}
+    if item_ids and gst_enabled:
+        rows = db.execute(
+            select(Item.id, Item.sale_price_includes_gst, TaxCategory.gst_rate)
+            .outerjoin(TaxCategory, Item.tax_category_id == TaxCategory.id)
+            .where(Item.id.in_(item_ids))
+        ).all()
+        for r in rows:
+            gst_by_item[int(r.id)] = {
+                "rate": float(r.gst_rate or 0),
+                "includes": bool(r.sale_price_includes_gst),
+            }
+    elif item_ids:
+        for iid in item_ids:
+            gst_by_item[iid] = {"rate": 0.0, "includes": True}
+
+    agg = aggregate_sale_lines(
+        lines,
+        gst_by_item,
+        vendor_state=vendor_state if gst_enabled else None,
+        place_state=place if gst_enabled else None,
+    )
+    sum_cgst = round_money(sum(float(l.get("cgst_amount") or 0) for l in agg["lines"]))
+    sum_sgst = round_money(sum(float(l.get("sgst_amount") or 0) for l in agg["lines"]))
+    sum_igst = round_money(sum(float(l.get("igst_amount") or 0) for l in agg["lines"]))
+
+    return {
+        "subtotal": subtotal,
+        "discount": discount,
+        "shipping_charge": ship,
+        "handling_charge": 0,
+        "total": total,
+        "total_qty": total_qty,
+        "free_shipping_applied": free_applied,
+        "offer_code": offer.get("code") if offer else None,
+        "gst_enabled": gst_enabled,
+        "vendor_state": vendor_state,
+        "place_state": place,
+        "same_state": same_state,
+        "taxable": round_money(sum(float(l.get("taxable_amount") or 0) for l in agg["lines"]))
+        if gst_enabled
+        else 0.0,
+        "gst_amount": agg["sum_tax"] if gst_enabled else 0.0,
+        "cgst_amount": sum_cgst if gst_enabled and same_state else 0.0,
+        "sgst_amount": sum_sgst if gst_enabled and same_state else 0.0,
+        "igst_amount": sum_igst if gst_enabled and not same_state else 0.0,
+        "prices_include_gst": True,
+    }
 
 
 def _build_order_payload(

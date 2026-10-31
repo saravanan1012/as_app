@@ -30,9 +30,10 @@ services:
       COOKIE_SECURE: "false"
       DEFAULT_VENDOR_ID: "1"
       STORAGE_ROOT: /app/storage
-      RAZORPAY_MOCK: "true"
-      RAZORPAY_KEY_ID: ""
-      RAZORPAY_KEY_SECRET: ""
+      # From host `.env` (see .env.example). Empty keys / MOCK=true → mock checkout path.
+      RAZORPAY_MOCK: ${RAZORPAY_MOCK:-true}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
     ports:
       - "8000:8000"
     volumes:
