@@ -44,3 +44,21 @@ docker compose exec -T api pytest -q
 
 VPS setup: [docs/vps-setup.md](docs/vps-setup.md) · Cutover: [docs/phase-8/retire-legacy.md](docs/phase-8/retire-legacy.md) · Ops: [docs/phase-9/runbook.md](docs/phase-9/runbook.md)
 
+
+
+## Local (dev)
+
+```bash
+# Start
+make up          # or: docker compose up -d --build
+# Web: http://localhost:3000  ·  API: http://localhost:8000/api/health
+
+# Stop (containers only — DB + uploads volumes kept)
+make down        # or: docker compose down
+
+# Wipe local DB/uploads too (destructive)
+# docker compose down -v
+```
+
+Login: `superadmin@as.com` / `User@123`  
+B2B: `distributor@as.com` → `dealer@as.com` → `retailer@as.com` (same password)
