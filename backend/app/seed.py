@@ -203,8 +203,13 @@ def seed_vendors_and_users(db: Session) -> None:
                     "ecommerce": {
                         "enabled": True,
                         "flat_rate": 80,
+                        "interstate_flat_rate": 160,
                         "free_over_enabled": True,
                         "free_over": 500,
+                        "eta_same_min": 2,
+                        "eta_same_max": 4,
+                        "eta_other_min": 5,
+                        "eta_other_max": 7,
                     },
                     "b2b": {
                         "qty_tiers": [
@@ -250,12 +255,31 @@ def seed_vendors_and_users(db: Session) -> None:
                 ship["ecommerce"] = {
                     "enabled": True,
                     "flat_rate": float(ship.get("flat_rate") or 80),
+                    "interstate_flat_rate": float(ship.get("flat_rate") or 80) * 2,
                     "free_over_enabled": True,
                     "free_over": float(ship["free_over"])
                     if ship.get("free_over") is not None
                     else 500,
+                    "eta_same_min": 2,
+                    "eta_same_max": 4,
+                    "eta_other_min": 5,
+                    "eta_other_max": 7,
                 }
                 changed = True
+            else:
+                eco = ship["ecommerce"]
+                if eco.get("interstate_flat_rate") is None:
+                    eco["interstate_flat_rate"] = float(eco.get("flat_rate") or 80) * 2
+                    changed = True
+                for k, default in (
+                    ("eta_same_min", 2),
+                    ("eta_same_max", 4),
+                    ("eta_other_min", 5),
+                    ("eta_other_max", 7),
+                ):
+                    if eco.get(k) is None:
+                        eco[k] = default
+                        changed = True
             b2b_ship = ship.setdefault("b2b", {})
             if not b2b_ship.get("qty_tiers"):
                 legacy_tiers = ship.get("qty_tiers") or [

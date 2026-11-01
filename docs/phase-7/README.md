@@ -9,7 +9,7 @@ RBAC-filtered admin console and SUPER_ADMIN platform (Store toggle, vendor boots
 | Platform | `/platform` vendors list + Store switch, `/platform/vendors/new`, `/platform/vendors/:id` |
 | Admin shell | Layout + nav from `useAdminNav` (permission-gated) |
 | Core ops | Dashboard, sales/purchase orders (+ GRN), items, stock (balances/ledger/adjust), suppliers, offers |
-| Parties | Customers hierarchy UI (Distributor → Dealer → Customer), acquisition filters |
+| Parties | Customers hierarchy UI (create/remap parent, add child, portal login link), acquisition filters |
 | Ops | Transactions, users, audit |
 | Invoice | `utils/invoicePdf.ts` — download from sale order detail |
 

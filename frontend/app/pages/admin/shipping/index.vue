@@ -9,8 +9,13 @@ const form = reactive({
   ecommerce: {
     enabled: true,
     flat_rate: 80,
+    interstate_flat_rate: 160,
     free_over_enabled: true,
-    free_over: 500 as number | null
+    free_over: 500 as number | null,
+    eta_same_min: 2,
+    eta_same_max: 4,
+    eta_other_min: 5,
+    eta_other_max: 7
   },
   b2b: {
     qty_tiers: [
@@ -32,8 +37,15 @@ watch(data, (d) => {
   const eco = s.ecommerce || {}
   form.ecommerce.enabled = eco.enabled !== false
   form.ecommerce.flat_rate = Number(eco.flat_rate ?? 0)
+  form.ecommerce.interstate_flat_rate = Number(
+    eco.interstate_flat_rate ?? Number(eco.flat_rate ?? 0) * 2
+  )
   form.ecommerce.free_over_enabled = !!eco.free_over_enabled
   form.ecommerce.free_over = eco.free_over != null ? Number(eco.free_over) : null
+  form.ecommerce.eta_same_min = Number(eco.eta_same_min ?? 2)
+  form.ecommerce.eta_same_max = Number(eco.eta_same_max ?? 4)
+  form.ecommerce.eta_other_min = Number(eco.eta_other_min ?? 5)
+  form.ecommerce.eta_other_max = Number(eco.eta_other_max ?? 7)
   const tiers = s.b2b?.qty_tiers || s.qty_tiers
   if (Array.isArray(tiers) && tiers.length) {
     form.b2b.qty_tiers = tiers.map((t: any) => ({
@@ -64,8 +76,13 @@ async function save() {
         ecommerce: {
           enabled: form.ecommerce.enabled,
           flat_rate: form.ecommerce.flat_rate,
+          interstate_flat_rate: form.ecommerce.interstate_flat_rate,
           free_over_enabled: form.ecommerce.free_over_enabled,
-          free_over: form.ecommerce.free_over_enabled ? form.ecommerce.free_over : null
+          free_over: form.ecommerce.free_over_enabled ? form.ecommerce.free_over : null,
+          eta_same_min: form.ecommerce.eta_same_min,
+          eta_same_max: form.ecommerce.eta_same_max,
+          eta_other_min: form.ecommerce.eta_other_min,
+          eta_other_max: form.ecommerce.eta_other_max
         },
         b2b: { qty_tiers: form.b2b.qty_tiers },
         couriers: form.couriers
@@ -95,7 +112,8 @@ async function save() {
             Online Store (direct customers)
           </h2>
           <p class="mt-1 text-sm text-ink-muted">
-            Napkins and other online items — charge by order value. Admin can enable/disable free delivery above a threshold.
+            Same-state uses vendor tax state (e.g. TN). Other states use the interstate rate.
+            Free delivery above a threshold applies to both zones.
           </p>
         </div>
 
@@ -107,9 +125,19 @@ async function save() {
           Delivery charges enabled for Online Store
         </label>
 
-        <UFormField label="Flat delivery ₹">
+        <UFormField label="Same-state delivery ₹">
           <UInput
             v-model.number="form.ecommerce.flat_rate"
+            type="number"
+            step="0.01"
+            class="w-full"
+            :disabled="!form.ecommerce.enabled"
+          />
+        </UFormField>
+
+        <UFormField label="Interstate delivery ₹">
+          <UInput
+            v-model.number="form.ecommerce.interstate_flat_rate"
             type="number"
             step="0.01"
             class="w-full"
@@ -139,6 +167,45 @@ async function save() {
             placeholder="e.g. 500"
           />
         </UFormField>
+
+        <div class="grid grid-cols-2 gap-3">
+          <UFormField label="Same-state ETA min (days)">
+            <UInput
+              v-model.number="form.ecommerce.eta_same_min"
+              type="number"
+              min="0"
+              class="w-full"
+              :disabled="!form.ecommerce.enabled"
+            />
+          </UFormField>
+          <UFormField label="Same-state ETA max (days)">
+            <UInput
+              v-model.number="form.ecommerce.eta_same_max"
+              type="number"
+              min="0"
+              class="w-full"
+              :disabled="!form.ecommerce.enabled"
+            />
+          </UFormField>
+          <UFormField label="Other-state ETA min (days)">
+            <UInput
+              v-model.number="form.ecommerce.eta_other_min"
+              type="number"
+              min="0"
+              class="w-full"
+              :disabled="!form.ecommerce.enabled"
+            />
+          </UFormField>
+          <UFormField label="Other-state ETA max (days)">
+            <UInput
+              v-model.number="form.ecommerce.eta_other_max"
+              type="number"
+              min="0"
+              class="w-full"
+              :disabled="!form.ecommerce.enabled"
+            />
+          </UFormField>
+        </div>
       </section>
 
       <section class="space-y-4 rounded-lg border border-gold-300/50 p-4">

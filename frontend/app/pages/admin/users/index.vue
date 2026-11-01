@@ -39,7 +39,7 @@ async function submit() {
 <template>
   <AdminPage
     title="Users"
-    description="Vendor staff accounts"
+    description="Vendor staff only (Admin / Manager / Staff). For distributors, dealers, and customers — including parent mapping and portal logins — use Customers."
   >
     <template #actions>
       <UButton

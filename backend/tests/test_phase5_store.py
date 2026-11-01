@@ -240,3 +240,110 @@ def test_razorpay_mock_reserve_and_verify(client):
     row = next(s for s in stock.json()["data"] if s["item_id"] == item_id)
     assert row["quantity_on_hand"] == 8
     assert row["quantity_reserved"] == 0
+
+
+@pytest.mark.usefixtures("db_ready")
+def test_pincode_lookup_and_cart_preview_zones(client):
+    _enable_store(client, enabled=True)
+    _login(client)
+    suf = _uid()
+
+    # Ensure interstate rate is configured and free_over won't wipe shipping
+    ship = client.patch(
+        "/api/vendor-settings/shipping",
+        json={
+            "ecommerce": {
+                "enabled": True,
+                "flat_rate": 60,
+                "interstate_flat_rate": 120,
+                "free_over_enabled": False,
+                "eta_same_min": 2,
+                "eta_same_max": 4,
+                "eta_other_min": 5,
+                "eta_other_max": 7,
+            }
+        },
+    )
+    assert ship.status_code == 200, ship.text
+
+    tax = client.post(
+        "/api/tax-categories",
+        json={"code": f"GZ{suf}", "name": "GST12", "gst_rate": 12},
+    )
+    tax_id = tax.json()["data"]["id"]
+    item = client.post(
+        "/api/items",
+        json={
+            "code": f"GZ{suf}",
+            "name": f"GST Zone {suf}",
+            "sale_price": 112,
+            "is_online_sale": True,
+            "sale_price_includes_gst": True,
+            "tax_category_id": tax_id,
+        },
+    )
+    assert item.status_code == 201, item.text
+    item_id = item.json()["data"]["id"]
+    loc_id = client.get("/api/locations").json()["data"][0]["id"]
+    client.post(
+        "/api/stock",
+        json={"item_id": item_id, "location_id": loc_id, "quantity_on_hand": 20},
+    )
+
+    pin_tn = client.get("/api/store/pincode/600001", headers=_headers())
+    assert pin_tn.status_code == 200, pin_tn.text
+    assert pin_tn.json()["data"]["state_code"] == "TN"
+
+    pin_ka = client.get("/api/store/pincode/560001", headers=_headers())
+    assert pin_ka.status_code == 200, pin_ka.text
+    assert pin_ka.json()["data"]["state_code"] == "KA"
+
+    preview_tn = client.post(
+        "/api/store/cart/preview",
+        headers=_headers(),
+        json={
+            "items": [{"item_id": item_id, "quantity": 1}],
+            "address": {
+                "street": "1 Main",
+                "city": "Chennai",
+                "state": "KA",
+                "zip": "600001",
+            },
+        },
+    )
+    assert preview_tn.status_code == 200, preview_tn.text
+    tn = preview_tn.json()["data"]
+    assert tn["place_state"] == "TN"
+    assert tn["same_state"] is True
+    assert tn["shipping_charge"] == 60
+    assert tn["delivery_zone"] == "same_state"
+    assert tn["delivery_eta_min"] == 2
+    assert tn["delivery_eta_max"] == 4
+    assert tn["cgst_amount"] > 0
+    assert tn["sgst_amount"] > 0
+    assert tn["igst_amount"] == 0
+
+    preview_ka = client.post(
+        "/api/store/cart/preview",
+        headers=_headers(),
+        json={
+            "items": [{"item_id": item_id, "quantity": 1}],
+            "address": {
+                "street": "1 MG Road",
+                "city": "Bengaluru",
+                "state": "TN",
+                "zip": "560001",
+            },
+        },
+    )
+    assert preview_ka.status_code == 200, preview_ka.text
+    ka = preview_ka.json()["data"]
+    assert ka["place_state"] == "KA"
+    assert ka["same_state"] is False
+    assert ka["shipping_charge"] == 120
+    assert ka["delivery_zone"] == "other_state"
+    assert ka["delivery_eta_min"] == 5
+    assert ka["delivery_eta_max"] == 7
+    assert ka["igst_amount"] > 0
+    assert ka["cgst_amount"] == 0
+    assert ka["sgst_amount"] == 0

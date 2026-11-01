@@ -1,11 +1,19 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
+const route = useRoute()
 const { api } = useApi()
+
+const initialType = String(route.query.party_type || 'CUSTOMER').toUpperCase()
+const rawParent = route.query.parent_id ? Number(route.query.parent_id) : NaN
+const initialParent = Number.isFinite(rawParent) ? rawParent : null
+
 const form = reactive({
   name: '',
-  party_type: 'CUSTOMER',
-  parent_id: null as number | null,
+  party_type: ['DISTRIBUTOR', 'DEALER', 'RETAILER', 'CUSTOMER'].includes(initialType)
+    ? initialType
+    : 'CUSTOMER',
+  parent_id: initialParent as number | null,
   acquisition_source: 'WALK_IN',
   phone: '',
   email: '',
@@ -40,9 +48,19 @@ const { data: parentsRes, refresh: refreshParents } = await useAdminAsyncData(
   { watch: [parentTypes] }
 )
 const parents = computed(() => parentsRes.value?.data?.data || [])
+const parentSelectItems = computed(() => [
+  { label: 'Independent (no parent)', value: null as number | null },
+  ...parents.value.map(p => ({ label: `${p.name} (${p.party_type})`, value: p.id as number | null }))
+])
 
-watch(() => form.party_type, () => {
-  form.parent_id = null
+watch(() => form.party_type, (pt) => {
+  if (pt === 'DISTRIBUTOR') {
+    form.parent_id = null
+  } else if (initialParent != null && initialType === pt) {
+    form.parent_id = initialParent
+  } else {
+    form.parent_id = null
+  }
   refreshParents()
 })
 
@@ -53,7 +71,7 @@ async function submit() {
     const body: Record<string, unknown> = {
       name: form.name,
       party_type: form.party_type,
-      parent_id: form.parent_id,
+      parent_id: form.party_type === 'DISTRIBUTOR' ? null : form.parent_id,
       acquisition_source: form.acquisition_source,
       phone: form.phone || null,
       email: form.email || null
@@ -79,7 +97,7 @@ async function submit() {
 <template>
   <AdminPage
     title="New party"
-    description="Hierarchy: Distributor → Dealer → Retailer → Customer"
+    description="Create distributor, dealer, retailer, or customer — then link under a parent. No registration required."
   >
     <form
       class="max-w-lg space-y-4"
@@ -111,9 +129,8 @@ async function submit() {
       >
         <USelect
           v-model="form.parent_id"
-          :items="parents.map(p => ({ label: `${p.name} (${p.party_type})`, value: p.id }))"
+          :items="parentSelectItems"
           class="w-full"
-          placeholder="Select parent (optional)"
         />
       </UFormField>
       <UFormField label="Acquisition">

@@ -27,7 +27,7 @@ const rows = computed(() => data.value?.data?.data || [])
 <template>
   <AdminPage
     title="Customers"
-    description="Distributor → Dealer → Retailer → Customer hierarchy"
+    description="Map distributors, dealers, retailers, and customers (with parent links). No self-registration required — use Users only for vendor staff."
   >
     <template #actions>
       <UButton
@@ -94,7 +94,9 @@ const rows = computed(() => data.value?.data?.data || [])
           </div>
           <p class="mt-1 text-sm text-ink-muted">
             {{ r.acquisition_source || '—' }}
-            <span v-if="r.parent_id"> · parent #{{ r.parent_id }}</span>
+            <span v-if="r.parent_name"> · under {{ r.parent_name }}</span>
+            <span v-else-if="r.parent_id"> · parent #{{ r.parent_id }}</span>
+            <span v-if="r.user_id"> · portal login</span>
             <span v-if="r.phone"> · {{ r.phone }}</span>
           </p>
         </NuxtLink>

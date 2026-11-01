@@ -40,9 +40,15 @@ type CartPreview = {
   vendor_state?: string
   place_state?: string
   prices_include_gst?: boolean
+  delivery_zone?: string
+  delivery_eta_min?: number
+  delivery_eta_max?: number
+  pin_resolved?: boolean
+  pin_unknown?: boolean
   shipping_rules?: {
     enabled: boolean
     flat_rate: number
+    interstate_flat_rate?: number
     free_over_enabled: boolean
     free_over: number | null
   }
@@ -50,6 +56,9 @@ type CartPreview = {
 
 const preview = ref<CartPreview | null>(null)
 const previewError = ref('')
+const pinLookupError = ref('')
+const pinLookupPending = ref(false)
+let pinLookupSeq = 0
 
 async function refreshPreview() {
   previewError.value = ''
@@ -96,8 +105,52 @@ const shippingHint = computed(() => {
       return `Add ₹${need.toFixed(0)} more for free delivery (above ₹${Number(rules.free_over).toFixed(0)}).`
     }
   }
-  return `Delivery ₹${Number(rules.flat_rate || 0).toFixed(0)}`
+  const zone = preview.value?.delivery_zone
+  const rate = zone === 'other_state'
+    ? Number(rules.interstate_flat_rate ?? rules.flat_rate ?? 0)
+    : Number(rules.flat_rate || 0)
+  return zone === 'other_state'
+    ? `Interstate delivery ₹${rate.toFixed(0)}`
+    : `Delivery ₹${rate.toFixed(0)}`
 })
+
+const deliveryEtaLabel = computed(() => {
+  const lo = preview.value?.delivery_eta_min
+  const hi = preview.value?.delivery_eta_max
+  if (lo == null || hi == null) return ''
+  if (lo === hi) return `Est. delivery ${lo} day${lo === 1 ? '' : 's'}`
+  return `Est. delivery ${lo}–${hi} days`
+})
+
+async function lookupPinState(zip: string) {
+  const digits = String(zip || '').replace(/\D/g, '')
+  pinLookupError.value = ''
+  if (digits.length !== 6) {
+    return
+  }
+  const seq = ++pinLookupSeq
+  pinLookupPending.value = true
+  try {
+    const res = await api<{
+      pin: string
+      state_code: string | null
+      state_name: string | null
+    }>(`/store/pincode/${encodeURIComponent(digits)}`)
+    if (seq !== pinLookupSeq) return
+    const code = res.data?.state_code
+    if (code) {
+      address.state = code
+      pinLookupError.value = ''
+    } else {
+      pinLookupError.value = 'Could not detect state from PIN — please confirm state.'
+    }
+  } catch {
+    if (seq !== pinLookupSeq) return
+    pinLookupError.value = 'Could not detect state from PIN — please confirm state.'
+  } finally {
+    if (seq === pinLookupSeq) pinLookupPending.value = false
+  }
+}
 
 const { data: savedAddrRes } = await useAsyncData('checkout-shipping-address', () =>
   api<{
@@ -137,12 +190,24 @@ watch(
   [
     () => cart.lines.map(l => `${l.item_id}:${l.quantity}`).join('|'),
     offerCode,
-    () => address.state
+    () => address.state,
+    () => address.zip
   ],
   () => {
     void refreshPreview()
   }
 )
+
+watch(
+  () => address.zip,
+  (zip) => {
+    void lookupPinState(zip)
+  }
+)
+
+if (address.zip) {
+  void lookupPinState(address.zip)
+}
 
 const addressSummary = computed(() => {
   const parts = [address.name, address.street, address.city, address.zip, address.state, address.phone]
@@ -310,9 +375,18 @@ async function place() {
                 v-model="address.zip"
                 size="lg"
                 class="w-full"
+                maxlength="6"
+                inputmode="numeric"
+                @blur="lookupPinState(address.zip)"
               />
             </UFormField>
           </div>
+          <p
+            v-if="pinLookupError || preview?.pin_unknown"
+            class="text-xs text-amber-800"
+          >
+            {{ pinLookupError || 'Could not detect state from PIN — please confirm state.' }}
+          </p>
           <UFormField label="State">
             <UInput
               v-model="address.state"
@@ -411,9 +485,17 @@ async function place() {
             <dd class="text-right">
               <template v-if="preview && Number(preview.shipping_charge) === 0">
                 <span
-                  v-if="Number(preview.shipping_rules?.flat_rate || 0) > 0"
+                  v-if="Number(
+                    (preview.delivery_zone === 'other_state'
+                      ? preview.shipping_rules?.interstate_flat_rate
+                      : preview.shipping_rules?.flat_rate) || 0
+                  ) > 0"
                   class="mr-2 text-ink-muted line-through"
-                >₹{{ Number(preview.shipping_rules?.flat_rate || 0).toFixed(0) }}</span>
+                >₹{{ Number(
+                  (preview.delivery_zone === 'other_state'
+                    ? preview.shipping_rules?.interstate_flat_rate
+                    : preview.shipping_rules?.flat_rate) || 0
+                ).toFixed(0) }}</span>
                 <span class="font-medium text-ink">₹0</span>
               </template>
               <template v-else>
@@ -426,7 +508,13 @@ async function place() {
             <dd>₹{{ Number(preview?.total ?? cart.subtotal).toFixed(0) }}</dd>
           </div>
         </dl>
-        <p class="mt-2 text-xs text-ink-muted">
+        <p
+          v-if="deliveryEtaLabel"
+          class="mt-2 text-xs text-ink"
+        >
+          {{ deliveryEtaLabel }}
+        </p>
+        <p class="mt-1 text-xs text-ink-muted">
           {{ shippingHint }}
         </p>
         <p

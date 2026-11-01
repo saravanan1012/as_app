@@ -14,7 +14,7 @@ export function useAdminNav() {
     { label: 'Purchase', to: '/admin/purchase-orders', permission: 'purchase.orders.read', icon: 'i-lucide-truck' },
     { label: 'Items', to: '/admin/items', permission: 'catalog.items.read', icon: 'i-lucide-package' },
     { label: 'Stock', to: '/admin/stock', permission: 'stock.read', icon: 'i-lucide-warehouse' },
-    { label: 'Customers', to: '/admin/customers', permission: 'customers.read', icon: 'i-lucide-users' },
+    { label: 'Customers', to: '/admin/customers', permission: 'customers.read', icon: 'i-lucide-network' },
     { label: 'Suppliers', to: '/admin/suppliers', permission: 'suppliers.read', icon: 'i-lucide-factory' },
     { label: 'Shipping', to: '/admin/shipping', permission: 'customers.manage', icon: 'i-lucide-package-check' },
     { label: 'GST / Tax', to: '/admin/tax', permission: 'catalog.items.read', icon: 'i-lucide-percent' },

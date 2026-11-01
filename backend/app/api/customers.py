@@ -10,7 +10,7 @@ from app.api.serialize import row
 from app.api.vendor_scope import perm
 from app.core.responses import error, success
 from app.db import get_db
-from app.models import Customer, CustomerAddress
+from app.models import Customer, CustomerAddress, User
 from app.services import parties as party_svc
 from app.services.audit import write_audit
 
@@ -21,6 +21,21 @@ FIELDS = [
     "acquisition_source", "acquisition_meta", "status", "member_since", "dob", "user_id",
     "created_at", "updated_at",
 ]
+USER_FIELDS = ["id", "email", "name", "role", "status", "phone"]
+
+
+def _parent_map(db: Session, rows: list[Customer]) -> dict[int, Customer]:
+    ids = {c.parent_id for c in rows if c.parent_id}
+    if not ids:
+        return {}
+    return {p.id: p for p in db.scalars(select(Customer).where(Customer.id.in_(ids))).all()}
+
+
+def _portal_user(db: Session, user_id: int | None) -> dict | None:
+    if not user_id:
+        return None
+    u = db.get(User, user_id)
+    return row(u, USER_FIELDS) if u else None
 
 
 class AddressIn(BaseModel):
@@ -60,6 +75,13 @@ class CustomerPatch(BaseModel):
     dob: date | None = None
 
 
+class PortalLoginIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    name: str | None = Field(default=None, max_length=100)
+    phone: str | None = None
+
+
 @router.get("")
 def list_customers(
     party_type: str | None = None,
@@ -89,10 +111,18 @@ def list_customers(
             )
         )
     rows = db.scalars(q.order_by(Customer.id.desc()).offset((page - 1) * page_size).limit(page_size)).all()
+    parents = _parent_map(db, list(rows))
+    payload = []
+    for c in rows:
+        item = row(c, FIELDS)
+        parent = parents.get(c.parent_id) if c.parent_id else None
+        item["parent_name"] = parent.name if parent else None
+        item["parent_party_type"] = parent.party_type if parent else None
+        payload.append(item)
     return success(
         "Customers fetched",
         {
-            "data": [row(c, FIELDS) for c in rows],
+            "data": payload,
             "pagination": {"page": page, "pageSize": page_size},
         },
     )
@@ -122,6 +152,15 @@ def get_customer(
         row(ch, ["id", "name", "party_type", "status"])
         for ch in party_svc.list_children(db, vendor_id, c.id)
     ]
+    if c.parent_id:
+        parent = db.get(Customer, c.parent_id)
+        data["parent"] = (
+            row(parent, ["id", "name", "party_type", "status"]) if parent else None
+        )
+    else:
+        data["parent"] = None
+    data["portal_user"] = _portal_user(db, c.user_id)
+    data["allowed_child_types"] = party_svc.allowed_child_types(c.party_type)
     return success("Customer fetched", data)
 
 
@@ -258,3 +297,79 @@ def delete_customer(
     db.delete(c)
     db.commit()
     return success("Deleted", {"id": customer_id})
+
+
+@router.post("/{customer_id}/portal-login")
+def create_portal_login(
+    customer_id: int,
+    body: PortalLoginIn,
+    ctx: tuple[AuthUser, int] = Depends(perm("customers.write")),
+    db: Session = Depends(get_db),
+):
+    """Create or attach a portal login for a party (no self-registration required)."""
+    user, vendor_id = ctx
+    c = db.get(Customer, customer_id)
+    if not c or c.vendor_id != vendor_id:
+        return error("Not found", status_code=404)
+    old = row(c, FIELDS)
+    try:
+        portal = party_svc.create_or_link_portal_login(
+            db,
+            vendor_id=vendor_id,
+            party=c,
+            email=str(body.email),
+            password=body.password,
+            name=body.name,
+            phone=body.phone,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        code = 409 if "already" in msg.lower() else 400
+        return error(msg, status_code=code)
+
+    write_audit(
+        db,
+        vendor_id=vendor_id,
+        user=user,
+        action="UPDATE",
+        entity_type="customer",
+        entity_id=c.id,
+        old_data=old,
+        new_data={**row(c, FIELDS), "portal_user_id": portal.id},
+    )
+    db.commit()
+    db.refresh(c)
+    data = row(c, FIELDS)
+    data["portal_user"] = row(portal, USER_FIELDS)
+    return success("Portal login created", data, status_code=201)
+
+
+@router.delete("/{customer_id}/portal-login")
+def remove_portal_login(
+    customer_id: int,
+    ctx: tuple[AuthUser, int] = Depends(perm("customers.write")),
+    db: Session = Depends(get_db),
+):
+    user, vendor_id = ctx
+    c = db.get(Customer, customer_id)
+    if not c or c.vendor_id != vendor_id:
+        return error("Not found", status_code=404)
+    if not c.user_id:
+        return error("Party has no portal login", status_code=400)
+    old = row(c, FIELDS)
+    prev = party_svc.unlink_portal_login(db, vendor_id=vendor_id, party=c)
+    write_audit(
+        db,
+        vendor_id=vendor_id,
+        user=user,
+        action="UPDATE",
+        entity_type="customer",
+        entity_id=c.id,
+        old_data=old,
+        new_data={**row(c, FIELDS), "unlinked_user_id": prev},
+    )
+    db.commit()
+    db.refresh(c)
+    data = row(c, FIELDS)
+    data["portal_user"] = None
+    return success("Portal login unlinked", data)

@@ -264,6 +264,27 @@ def validate_store_offer(
     return success("Offer valid", result)
 
 
+@router.get("/pincode/{pin}")
+def store_pincode_lookup(
+    pin: str,
+    vendor: Vendor = Depends(require_store_vendor),
+):
+    """Resolve India PIN → GST state code (static prefix map)."""
+    from app.core.pincode import lookup_pin, normalize_pin
+
+    _ = vendor  # store must be enabled
+    normalized = normalize_pin(pin)
+    if not normalized:
+        return error("Invalid PIN code", status_code=400)
+    data = lookup_pin(normalized)
+    if not data or not data.get("state_code"):
+        return success(
+            "PIN unknown",
+            {"pin": normalized, "state_code": None, "state_name": None},
+        )
+    return success("PIN resolved", data)
+
+
 @router.post("/cart/preview")
 def store_cart_preview(
     body: CheckoutIn,
@@ -276,6 +297,7 @@ def store_cart_preview(
     from app.services.pricing import ecommerce_shipping_public
 
     try:
+        addr = body.address.model_dump() if body.address else None
         place_state = body.address.state if body.address else None
         data = preview_store_cart(
             db,
@@ -284,6 +306,7 @@ def store_cart_preview(
             offer_code=body.offer_code,
             user_id=user.id if user else None,
             place_state=place_state,
+            address=addr,
         )
     except CheckoutError as e:
         return error(str(e), status_code=400)

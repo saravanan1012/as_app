@@ -87,12 +87,50 @@ def resolve_item_prices(
     }
 
 
+def _normalize_ecommerce(eco_in: dict | None, *, enabled_default: bool = True) -> dict[str, Any]:
+    eco_in = dict(eco_in or {})
+    flat_rate = float(eco_in.get("flat_rate") or 0)
+    interstate = eco_in.get("interstate_flat_rate")
+    if interstate is None:
+        interstate_flat_rate = round_money(flat_rate * 2)
+    else:
+        interstate_flat_rate = float(interstate)
+
+    def _eta(key: str, default: int) -> int:
+        try:
+            return max(0, int(eco_in.get(key, default)))
+        except (TypeError, ValueError):
+            return default
+
+    return {
+        "enabled": bool(eco_in.get("enabled", enabled_default)),
+        "flat_rate": flat_rate,
+        "interstate_flat_rate": interstate_flat_rate,
+        "free_over_enabled": bool(
+            eco_in.get(
+                "free_over_enabled",
+                eco_in.get("free_over") is not None,
+            )
+        ),
+        "free_over": (
+            float(eco_in["free_over"]) if eco_in.get("free_over") is not None else None
+        ),
+        "eta_same_min": _eta("eta_same_min", 2),
+        "eta_same_max": _eta("eta_same_max", 4),
+        "eta_other_min": _eta("eta_other_min", 5),
+        "eta_other_max": _eta("eta_other_max", 7),
+    }
+
+
 def normalize_shipping(shipping: dict | None) -> dict[str, Any]:
     """
     Canonical shipping shape:
 
     {
-      ecommerce: { enabled, flat_rate, free_over_enabled, free_over },
+      ecommerce: {
+        enabled, flat_rate, interstate_flat_rate, free_over_enabled, free_over,
+        eta_same_min, eta_same_max, eta_other_min, eta_other_max
+      },
       b2b: { qty_tiers },
       couriers: [...]
     }
@@ -105,36 +143,61 @@ def normalize_shipping(shipping: dict | None) -> dict[str, Any]:
     if has_split:
         eco_in = dict(raw.get("ecommerce") or {})
         b2b_in = dict(raw.get("b2b") or {})
-        eco = {
-            "enabled": bool(eco_in.get("enabled", True)),
-            "flat_rate": float(eco_in.get("flat_rate") or 0),
-            "free_over_enabled": bool(
-                eco_in.get(
-                    "free_over_enabled",
-                    eco_in.get("free_over") is not None,
-                )
-            ),
-            "free_over": (
-                float(eco_in["free_over"])
-                if eco_in.get("free_over") is not None
-                else None
-            ),
-        }
+        eco = _normalize_ecommerce(eco_in, enabled_default=True)
         b2b = {"qty_tiers": list(b2b_in.get("qty_tiers") or [])}
         couriers = raw.get("couriers") or b2b_in.get("couriers") or list(DEFAULT_COURIERS)
         return {"ecommerce": eco, "b2b": b2b, "couriers": list(couriers)}
 
     # Legacy single blob → split channels
     free_over = raw.get("free_over")
-    return {
-        "ecommerce": {
+    eco = _normalize_ecommerce(
+        {
             "enabled": True,
             "flat_rate": float(raw.get("flat_rate") or 0),
             "free_over_enabled": free_over is not None,
             "free_over": float(free_over) if free_over is not None else None,
         },
+        enabled_default=True,
+    )
+    return {
+        "ecommerce": eco,
         "b2b": {"qty_tiers": list(raw.get("qty_tiers") or [])},
         "couriers": list(raw.get("couriers") or list(DEFAULT_COURIERS)),
+    }
+
+
+def delivery_zone(
+    *,
+    vendor_state: str | None,
+    place_state: str | None,
+) -> str:
+    """Return same_state | other_state. Missing place_state → same_state (legacy)."""
+    vs = (vendor_state or "").strip().upper()[:2]
+    ps = (place_state or "").strip().upper()[:2]
+    if vs and ps and vs != ps:
+        return "other_state"
+    return "same_state"
+
+
+def ecommerce_delivery_eta(
+    settings: dict | None,
+    *,
+    vendor_state: str | None = None,
+    place_state: str | None = None,
+) -> dict[str, Any]:
+    ship = normalize_shipping((settings or {}).get("shipping") or {})
+    eco = ship["ecommerce"]
+    zone = delivery_zone(vendor_state=vendor_state, place_state=place_state)
+    if zone == "other_state":
+        lo, hi = int(eco["eta_other_min"]), int(eco["eta_other_max"])
+    else:
+        lo, hi = int(eco["eta_same_min"]), int(eco["eta_same_max"])
+    if hi < lo:
+        lo, hi = hi, lo
+    return {
+        "delivery_zone": zone,
+        "delivery_eta_min": lo,
+        "delivery_eta_max": hi,
     }
 
 
@@ -161,8 +224,14 @@ def shipping_charge_ecommerce(
     *,
     subtotal: float,
     free_shipping: bool = False,
+    place_state: str | None = None,
+    vendor_state: str | None = None,
 ) -> float:
-    """Online store / direct customer — amount-based flat + optional free_over."""
+    """Online store / direct customer — amount-based flat + optional free_over.
+
+    Same vendor/place state uses flat_rate; other states use interstate_flat_rate.
+    If place_state is missing, keep same-state rate (legacy behavior).
+    """
     if free_shipping:
         return 0.0
     ship = normalize_shipping((settings or {}).get("shipping") or {})
@@ -176,6 +245,9 @@ def shipping_charge_ecommerce(
         and float(subtotal) >= float(free_over)
     ):
         return 0.0
+    zone = delivery_zone(vendor_state=vendor_state, place_state=place_state)
+    if zone == "other_state":
+        return round_money(float(eco.get("interstate_flat_rate") or 0))
     return round_money(float(eco.get("flat_rate") or 0))
 
 
@@ -199,6 +271,8 @@ def shipping_charge_for_qty(
     subtotal: float,
     free_shipping: bool = False,
     channel: str = "b2b",
+    place_state: str | None = None,
+    vendor_state: str | None = None,
 ) -> float:
     """
     Channel-aware shipping.
@@ -207,7 +281,11 @@ def shipping_charge_for_qty(
     ch = (channel or "b2b").lower()
     if ch in ("ecommerce", "store", "online", "direct"):
         return shipping_charge_ecommerce(
-            settings, subtotal=subtotal, free_shipping=free_shipping
+            settings,
+            subtotal=subtotal,
+            free_shipping=free_shipping,
+            place_state=place_state,
+            vendor_state=vendor_state,
         )
     return shipping_charge_b2b(
         settings, total_qty=total_qty, free_shipping=free_shipping
@@ -221,8 +299,13 @@ def ecommerce_shipping_public(settings: dict | None) -> dict[str, Any]:
     return {
         "enabled": bool(eco.get("enabled", True)),
         "flat_rate": float(eco.get("flat_rate") or 0),
+        "interstate_flat_rate": float(eco.get("interstate_flat_rate") or 0),
         "free_over_enabled": bool(eco.get("free_over_enabled")),
         "free_over": eco.get("free_over"),
+        "eta_same_min": int(eco.get("eta_same_min") or 2),
+        "eta_same_max": int(eco.get("eta_same_max") or 4),
+        "eta_other_min": int(eco.get("eta_other_min") or 5),
+        "eta_other_max": int(eco.get("eta_other_max") or 7),
     }
 
 

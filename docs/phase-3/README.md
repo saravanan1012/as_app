@@ -8,7 +8,7 @@
 
 | Resource | Paths | Permission |
 |----------|-------|------------|
-| Customers | `/api/customers` | `customers.*` |
+| Customers | `/api/customers`, `/api/customers/{id}/portal-login` | `customers.*` |
 | Items | `/api/items` | `catalog.items.*` |
 | Locations | `/api/locations` | `stock.*` |
 | Stock | `/api/stock` | `stock.*` |
@@ -23,9 +23,10 @@
 
 ## Party hierarchy
 
-- Types: `DISTRIBUTOR` → `DEALER` → `CUSTOMER`
+- Types: `DISTRIBUTOR` → `DEALER` → `RETAILER` → `CUSTOMER`
 - Independent: `parent_id` null + `acquisition_source` (`ONLINE`, `FB_LEAD`, …)
 - Filters: `?party_type=&acquisition_source=&parent_id=&search=`
+- Portal login: `POST/DELETE /api/customers/{id}/portal-login` creates/links a trade or customer User without self-registration
 
 ## Next
 

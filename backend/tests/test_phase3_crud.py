@@ -90,6 +90,64 @@ def test_customer_hierarchy_and_filters(client):
     detail = client.get(f"/api/customers/{dist_id}")
     assert detail.status_code == 200
     assert any(ch["id"] == dealer_id for ch in detail.json()["data"]["children"])
+    assert detail.json()["data"]["allowed_child_types"] == ["CUSTOMER", "DEALER", "RETAILER"]
+    assert detail.json()["data"]["portal_user"] is None
+
+    # Remap dealer to independent, then back under distributor
+    remap = client.patch(f"/api/customers/{dealer_id}", json={"parent_id": None})
+    assert remap.status_code == 200, remap.text
+    assert remap.json()["data"]["parent_id"] is None
+    remap_back = client.patch(f"/api/customers/{dealer_id}", json={"parent_id": dist_id})
+    assert remap_back.status_code == 200
+    assert remap_back.json()["data"]["parent_id"] == dist_id
+
+    listed = client.get("/api/customers?party_type=DEALER")
+    assert listed.status_code == 200
+    dealer_row = next(c for c in listed.json()["data"]["data"] if c["id"] == dealer_id)
+    assert dealer_row["parent_name"] == "North Dist"
+
+
+@pytest.mark.usefixtures("db_ready")
+def test_party_portal_login_create_and_unlink(client):
+    _login_admin(client)
+    suf = _uid()
+    dist = client.post(
+        "/api/customers",
+        json={"name": f"Portal Dist {suf}", "party_type": "DISTRIBUTOR"},
+    )
+    assert dist.status_code == 201, dist.text
+    dist_id = dist.json()["data"]["id"]
+
+    email = f"portal-dist-{suf}@as.com"
+    created = client.post(
+        f"/api/customers/{dist_id}/portal-login",
+        json={"email": email, "password": "User@123", "name": f"Portal Dist {suf}"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["data"]["user_id"]
+    assert created.json()["data"]["portal_user"]["email"] == email
+    assert created.json()["data"]["portal_user"]["role"] == "DISTRIBUTOR"
+
+    dup = client.post(
+        f"/api/customers/{dist_id}/portal-login",
+        json={"email": f"other-{suf}@as.com", "password": "User@123"},
+    )
+    assert dup.status_code == 409
+
+    detail = client.get(f"/api/customers/{dist_id}")
+    assert detail.json()["data"]["portal_user"]["email"] == email
+
+    # Login as trade portal user works
+    client.post("/api/auth/logout")
+    login = client.post("/api/auth/login", json={"email": email, "password": "User@123"})
+    assert login.status_code == 200, login.text
+
+    client.post("/api/auth/logout")
+    _login_admin(client)
+    unlinked = client.delete(f"/api/customers/{dist_id}/portal-login")
+    assert unlinked.status_code == 200, unlinked.text
+    assert unlinked.json()["data"]["user_id"] is None
+    assert unlinked.json()["data"]["portal_user"] is None
 
 
 @pytest.mark.usefixtures("db_ready")

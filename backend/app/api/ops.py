@@ -42,8 +42,13 @@ class ActivityIn(BaseModel):
 class EcommerceShippingIn(BaseModel):
     enabled: bool | None = None
     flat_rate: float | None = None
+    interstate_flat_rate: float | None = None
     free_over_enabled: bool | None = None
     free_over: float | None = None
+    eta_same_min: int | None = None
+    eta_same_max: int | None = None
+    eta_other_min: int | None = None
+    eta_other_max: int | None = None
 
 
 class B2bShippingIn(BaseModel):

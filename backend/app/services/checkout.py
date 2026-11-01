@@ -34,13 +34,37 @@ def store_enabled(vendor: Vendor) -> bool:
     return bool(settings.get("features", {}).get("store_enabled"))
 
 
+def _vendor_state_code(vendor: Vendor) -> str:
+    settings = vendor.settings if isinstance(vendor.settings, dict) else {}
+    tax_cfg = dict(settings.get("tax") or {})
+    return (vendor.state_code or tax_cfg.get("state_code") or "TN") or "TN"
+
+
+def resolve_place_state(
+    address: dict[str, Any] | None,
+    *,
+    vendor_state: str | None = None,
+    place_state: str | None = None,
+) -> str:
+    """Prefer PIN-derived state when lookup succeeds; else address/manual place_state."""
+    from app.core.pincode import state_from_pin
+
+    addr = address or {}
+    pin_state = state_from_pin(addr.get("zip"))
+    if pin_state:
+        return pin_state
+    manual = (place_state or addr.get("state") or vendor_state or "TN")
+    return str(manual).strip().upper()[:2] or (vendor_state or "TN")
+
+
 def shipping_charge(
     vendor: Vendor,
     subtotal: float,
     free_shipping: bool = False,
     total_qty: int | None = None,
+    place_state: str | None = None,
 ) -> float:
-    """Ecommerce / direct customer shipping (amount-based)."""
+    """Ecommerce / direct customer shipping (amount-based; zone-aware)."""
     from app.services.pricing import shipping_charge_ecommerce
 
     settings = vendor.settings if isinstance(vendor.settings, dict) else {}
@@ -48,6 +72,8 @@ def shipping_charge(
         settings,
         subtotal=subtotal,
         free_shipping=free_shipping,
+        place_state=place_state,
+        vendor_state=_vendor_state_code(vendor),
     )
 
 
@@ -169,12 +195,14 @@ def preview_store_cart(
     offer_code: str | None = None,
     user_id: int | None = None,
     place_state: str | None = None,
+    address: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compute ecommerce cart split without creating an order."""
     from app.core.gst import aggregate_sale_lines
+    from app.core.pincode import normalize_pin, state_from_pin
     from app.models import TaxCategory
     from app.services.offers_eval import OfferError, validate_offer
-    from app.services.pricing import ecommerce_shipping_public
+    from app.services.pricing import ecommerce_delivery_eta, ecommerce_shipping_public
 
     lines, subtotal = _load_cart_lines(
         db,
@@ -210,15 +238,22 @@ def preview_store_cart(
 
     discount = float(offer["discount_amount"]) if offer else 0.0
     total_qty = sum(int(x.get("quantity") or 0) for x in lines)
-    ship = shipping_charge(
-        vendor,
-        round_money(max(0.0, subtotal - discount)),
-        free_shipping=bool(offer and offer.get("free_shipping")),
-        total_qty=total_qty,
+    settings = vendor.settings if isinstance(vendor.settings, dict) else {}
+    tax_cfg = dict(settings.get("tax") or {})
+    gst_enabled = bool(tax_cfg.get("gst_enabled", True))
+    vendor_state = _vendor_state_code(vendor)
+    place = resolve_place_state(
+        address, vendor_state=vendor_state, place_state=place_state
     )
     payable_subtotal = round_money(max(0.0, subtotal - discount))
+    ship = shipping_charge(
+        vendor,
+        payable_subtotal,
+        free_shipping=bool(offer and offer.get("free_shipping")),
+        total_qty=total_qty,
+        place_state=place,
+    )
     total = round_money(payable_subtotal + ship)
-    settings = vendor.settings if isinstance(vendor.settings, dict) else {}
     rules = ecommerce_shipping_public(settings)
     free_over = rules.get("free_over")
     free_applied = bool(
@@ -228,12 +263,13 @@ def preview_store_cart(
         and free_over is not None
         and payable_subtotal >= float(free_over)
     )
-
-    tax_cfg = dict(settings.get("tax") or {})
-    gst_enabled = bool(tax_cfg.get("gst_enabled", True))
-    vendor_state = (vendor.state_code or tax_cfg.get("state_code") or "TN") or "TN"
-    place = (place_state or vendor_state or "TN").strip().upper()[:2] or vendor_state
     same_state = vendor_state.strip().upper() == place
+    eta = ecommerce_delivery_eta(
+        settings, vendor_state=vendor_state, place_state=place
+    )
+    pin = normalize_pin((address or {}).get("zip") if address else None)
+    pin_known = bool(pin and state_from_pin(pin))
+    pin_unknown = bool(pin and not pin_known)
 
     item_ids = [int(x["item_id"]) for x in lines]
     gst_by_item: dict[int, dict] = {}
@@ -283,6 +319,11 @@ def preview_store_cart(
         "sgst_amount": sum_sgst if gst_enabled and same_state else 0.0,
         "igst_amount": sum_igst if gst_enabled and not same_state else 0.0,
         "prices_include_gst": True,
+        "delivery_zone": eta["delivery_zone"],
+        "delivery_eta_min": eta["delivery_eta_min"],
+        "delivery_eta_max": eta["delivery_eta_max"],
+        "pin_resolved": pin_known,
+        "pin_unknown": pin_unknown,
     }
 
 
@@ -365,11 +406,16 @@ def checkout_cod(
         lines = allocate_order_discount_to_lines(lines, offer["discount_amount"])
 
     total_qty = sum(int(x.get("quantity") or 0) for x in lines)
+    discount = float(offer["discount_amount"]) if offer else 0.0
+    place = resolve_place_state(address, vendor_state=_vendor_state_code(vendor))
+    if address is not None:
+        address = {**address, "state": place}
     ship = shipping_charge(
         vendor,
-        subtotal,
+        round_money(max(0.0, subtotal - discount)),
         free_shipping=bool(offer and offer.get("free_shipping")),
         total_qty=total_qty,
+        place_state=place,
     )
     order_code = f"SO-ECO-{int(time.time() * 1000)}-{uuid.uuid4().hex[:6]}"
     payload = _build_order_payload(
@@ -466,14 +512,18 @@ def checkout_razorpay_create(
         lines = allocate_order_discount_to_lines(lines, offer["discount_amount"])
 
     total_qty = sum(int(x.get("quantity") or 0) for x in lines)
+    discount = float(offer["discount_amount"]) if offer else 0.0
+    place = resolve_place_state(address, vendor_state=_vendor_state_code(vendor))
+    if address is not None:
+        address = {**address, "state": place}
     ship = shipping_charge(
         vendor,
-        subtotal,
+        round_money(max(0.0, subtotal - discount)),
         free_shipping=bool(offer and offer.get("free_shipping")),
         total_qty=total_qty,
+        place_state=place,
     )
     # Approximate net for Razorpay amount: subtotal - discount + shipping (GST inclusive prices)
-    discount = float(offer["discount_amount"]) if offer else 0.0
     amount_rupees = round_money(max(0.0, subtotal - discount + ship))
     amount_paise = int(round(amount_rupees * 100))
 

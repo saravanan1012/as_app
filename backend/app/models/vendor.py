@@ -32,8 +32,13 @@ DEFAULT_VENDOR_SETTINGS: dict[str, Any] = {
         "ecommerce": {
             "enabled": True,
             "flat_rate": 80,
+            "interstate_flat_rate": 160,
             "free_over_enabled": True,
             "free_over": 500,
+            "eta_same_min": 2,
+            "eta_same_max": 4,
+            "eta_other_min": 5,
+            "eta_other_max": 7,
         },
         "b2b": {
             "qty_tiers": [
