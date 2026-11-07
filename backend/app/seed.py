@@ -39,7 +39,7 @@ NAPKIN_ITEMS = [
         "folder": "M",
         "name": "M Napkins",
         "description": (
-            "AS Organic sanitary napkins — Medium. Soft cotton cover, secure wings, "
+            "AS Signature sanitary napkins — Medium. Soft cotton cover, secure wings, "
             "and everyday absorbency for regular flow. Breathable and skin-friendly."
         ),
         "sale_price": 179,
@@ -53,7 +53,7 @@ NAPKIN_ITEMS = [
         "folder": "L",
         "name": "L Napkins",
         "description": (
-            "AS Organic sanitary napkins — Large. Extra length and coverage for comfort "
+            "AS Signature sanitary napkins — Large. Extra length and coverage for comfort "
             "through the day. Anion strip support with a cotton-feel top sheet."
         ),
         "sale_price": 199,
@@ -67,7 +67,7 @@ NAPKIN_ITEMS = [
         "folder": "XL",
         "name": "XL Napkins",
         "description": (
-            "AS Organic sanitary napkins — XL. Wider wings and higher absorbency for "
+            "AS Signature sanitary napkins — XL. Wider wings and higher absorbency for "
             "heavier days. Leak-guard edges for confident all-day wear."
         ),
         "sale_price": 229,
@@ -81,7 +81,7 @@ NAPKIN_ITEMS = [
         "folder": "XXL",
         "name": "XXL Napkins",
         "description": (
-            "AS Organic sanitary napkins — XXL. Maximum daytime coverage with a soft "
+            "AS Signature sanitary napkins — XXL. Maximum daytime coverage with a soft "
             "pouch-ready pack. Ideal when you want longer wear and full protection."
         ),
         "sale_price": 259,
@@ -95,7 +95,7 @@ NAPKIN_ITEMS = [
         "folder": "XXXL",
         "name": "XXXL Napkins",
         "description": (
-            "AS Organic sanitary napkins — XXXL. Our largest size for overnight and "
+            "AS Signature sanitary napkins — XXXL. Our largest size for overnight and "
             "extra-heavy flow. Thick core, secure fit, and gentle organic materials."
         ),
         "sale_price": 289,
@@ -180,7 +180,7 @@ def seed_permissions(db: Session) -> None:
 
 def seed_vendors_and_users(db: Session) -> None:
     vendors_spec = [
-        ("AS Organic Demo", "as-demo", "BASIC"),
+        ("AS Signature Demo", "as-demo", "BASIC"),
         ("Second Vendor", "vendor-two", "BASIC"),
     ]
     for name, slug, plan in vendors_spec:
@@ -190,11 +190,12 @@ def seed_vendors_and_users(db: Session) -> None:
             if slug == "as-demo":
                 settings["branding"] = {
                     **settings["branding"],
-                    "store_name": "AS Organic",
-                    "company_tagline": "Pure botanicals for everyday rituals",
+                    "store_name": "AS Signature",
+                    "logo_url": "/images/logo-header.png",
+                    "company_tagline": "Cotton & organic care for everyday comfort",
                     "company_blurb": (
-                        "AS Organic crafts plant-based essentials with care — "
-                        "from farm-sourced ingredients to small-batch finishing."
+                        "AS Signature crafts cotton and organic sanitary care with care — "
+                        "soft coverage, secure fit, and everyday comfort."
                     ),
                     "theme_id": "matte_gold",
                     "primary": "#D4AF7C",
@@ -235,20 +236,34 @@ def seed_vendors_and_users(db: Session) -> None:
             branding = (vendor.settings or {}).get("branding") or {}
             s = deepcopy(vendor.settings or DEFAULT_VENDOR_SETTINGS)
             changed = False
-            if not branding.get("company_tagline"):
-                s.setdefault("branding", {})
-                s["branding"].update(
+            s.setdefault("branding", {})
+            brand_patch = {
+                "store_name": "AS Signature",
+                "logo_url": "/images/logo-header.png",
+                "theme_id": branding.get("theme_id") or "matte_gold",
+                "primary": branding.get("primary") or "#D4AF7C",
+            }
+            if not branding.get("company_tagline") or branding.get("store_name") in (
+                None,
+                "",
+                "AS Organic",
+            ):
+                brand_patch.update(
                     {
-                        "store_name": s["branding"].get("store_name") or "AS Organic",
-                        "company_tagline": "Pure botanicals for everyday rituals",
-                        "company_blurb": (
-                            "AS Organic crafts plant-based essentials with care — "
-                            "from farm-sourced ingredients to small-batch finishing."
+                        "company_tagline": branding.get("company_tagline")
+                        or "Cotton & organic care for everyday comfort",
+                        "company_blurb": branding.get("company_blurb")
+                        or (
+                            "AS Signature crafts cotton and organic sanitary care with care — "
+                            "soft coverage, secure fit, and everyday comfort."
                         ),
-                        "theme_id": "matte_gold",
-                        "primary": "#D4AF7C",
                     }
                 )
+            if any(branding.get(k) != v for k, v in brand_patch.items()):
+                s["branding"].update(brand_patch)
+                changed = True
+            if vendor.name in ("AS Organic Demo", "AS Organic"):
+                vendor.name = "AS Signature Demo"
                 changed = True
             ship = s.setdefault("shipping", {})
             if "ecommerce" not in ship:

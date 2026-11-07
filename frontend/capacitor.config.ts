@@ -11,7 +11,7 @@ const cleartext = process.env.CAPACITOR_CLEARTEXT === 'true' || serverUrl.starts
 
 const config = {
   appId: 'com.asorganic.app',
-  appName: 'AS Organic',
+  appName: 'AS Signature',
   webDir: 'dist',
   server: {
     url: serverUrl,

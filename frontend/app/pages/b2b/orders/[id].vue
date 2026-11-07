@@ -17,7 +17,7 @@ async function downloadInvoice() {
   const { downloadSaleOrderInvoicePdf } = await import('~/utils/invoicePdf')
   downloadSaleOrderInvoicePdf(
     {
-      companyName: vendor.brandName || 'AS Organic',
+      companyName: vendor.brandName || 'AS Signature',
       gstin: vendor.vendor?.gstin,
       addressLines: vendor.vendor?.address ? [vendor.vendor.address] : [],
       email: auth.user?.email

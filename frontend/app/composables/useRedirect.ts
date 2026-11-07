@@ -14,8 +14,8 @@ export function useRedirect() {
     if (purchase && !sales) return '/admin/purchase-orders'
     if (sales || purchase || perms.has('dashboard.read')) return '/admin/sales-orders'
     if (perms.has('b2b.portal')) return '/b2b'
+    if (user.role === 'CUSTOMER' || perms.has('ecommerce.store.read')) return '/store/orders'
     if (vendor.storeEnabled) return '/store'
-    if (user.role === 'CUSTOMER') return '/store/orders'
     return '/'
   }
 

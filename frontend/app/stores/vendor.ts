@@ -32,7 +32,7 @@ export const useVendorStore = defineStore('vendor', () => {
 
   const storeEnabled = computed(() => !!vendor.value?.store_enabled)
   const brandName = computed(
-    () => vendor.value?.branding.store_name || vendor.value?.name || 'AS Organic'
+    () => vendor.value?.branding.store_name || vendor.value?.name || 'AS Signature'
   )
   const tagline = computed(() => vendor.value?.branding.company_tagline || '')
   const blurb = computed(() => vendor.value?.branding.company_blurb || '')

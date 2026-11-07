@@ -4,6 +4,8 @@ const auth = useAuthStore()
 const cart = useCartStore()
 const { resolveHome } = useRedirect()
 
+const isCustomer = computed(() => auth.user?.role === 'CUSTOMER')
+
 const links = computed(() => {
   const items = [
     { label: 'Products', to: '/products' },
@@ -21,9 +23,19 @@ const links = computed(() => {
     <div class="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:h-16 sm:px-6">
       <NuxtLink
         to="/"
-        class="font-display text-xl tracking-tight text-ink sm:text-2xl"
+        class="flex items-center gap-2 text-ink"
+        :aria-label="vendor.brandName"
       >
-        {{ vendor.brandName }}
+        <img
+          src="/images/logo-header.png"
+          alt=""
+          width="40"
+          height="40"
+          class="h-9 w-9 shrink-0 object-contain sm:h-10 sm:w-10"
+        >
+        <span class="font-display text-xl tracking-tight sm:text-2xl">
+          {{ vendor.brandName }}
+        </span>
       </NuxtLink>
 
       <nav class="hidden items-center gap-6 text-sm font-medium text-ink-muted md:flex">
@@ -59,9 +71,9 @@ const links = computed(() => {
           color="neutral"
           variant="ghost"
           size="sm"
-          :to="resolveHome()"
+          :to="isCustomer ? '/store/orders' : resolveHome()"
         >
-          Account
+          {{ isCustomer ? 'My orders' : 'Account' }}
         </UButton>
         <UButton
           v-else

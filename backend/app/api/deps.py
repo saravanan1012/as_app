@@ -109,8 +109,9 @@ def default_redirect(permissions: set[str], store_enabled: bool = False) -> str:
     # Trade roles have b2b.portal without admin dashboard
     if permission_implies(permissions, "b2b.portal"):
         return "/b2b"
-    if store_enabled:
-        return "/store"
+    # Direct / end customers — Account home is orders (not empty cart / catalog)
     if permission_implies(permissions, "ecommerce.store.read"):
         return "/store/orders"
+    if store_enabled:
+        return "/store"
     return "/"

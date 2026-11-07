@@ -63,7 +63,7 @@ export function useRazorpayCheckout() {
         key: opts.key,
         amount: opts.amount,
         currency: opts.currency || 'INR',
-        name: opts.name || 'AS Organic',
+        name: opts.name || 'AS Signature',
         description: opts.description || 'Online Store order',
         order_id: opts.orderId,
         prefill: {

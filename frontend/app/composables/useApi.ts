@@ -10,6 +10,8 @@ export function useApi() {
   const vendor = useVendorStore()
   const auth = useAuthStore()
   const adminCtx = useAdminContextStore()
+  // Forward browser cookies on SSR so /auth/me works on hard refresh / typed URLs
+  const fetcher = import.meta.server ? useRequestFetch() : $fetch
 
   async function api<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}) {
     const headers: Record<string, string> = {
@@ -23,7 +25,7 @@ export function useApi() {
       url = `${url}${sep}vendor_id=${adminCtx.vendorId}`
     }
 
-    return $fetch<ApiEnvelope<T>>(url, {
+    return fetcher<ApiEnvelope<T>>(url, {
       ...opts,
       credentials: 'include',
       headers

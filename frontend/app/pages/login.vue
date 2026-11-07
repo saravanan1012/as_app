@@ -3,6 +3,7 @@ const auth = useAuthStore()
 const { resolveHome } = useRedirect()
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const error = ref('')
 const loading = ref(false)
 
@@ -46,12 +47,25 @@ async function submit() {
       <UFormField label="Password">
         <UInput
           v-model="password"
-          type="password"
+          :type="showPassword ? 'text' : 'password'"
           required
           size="lg"
           class="w-full"
           autocomplete="current-password"
-        />
+          :ui="{ trailing: 'pe-1' }"
+        >
+          <template #trailing>
+            <UButton
+              color="neutral"
+              variant="link"
+              size="sm"
+              :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              :aria-pressed="showPassword"
+              @click="showPassword = !showPassword"
+            />
+          </template>
+        </UInput>
       </UFormField>
       <p
         v-if="error"

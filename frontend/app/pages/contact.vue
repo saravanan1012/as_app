@@ -131,6 +131,42 @@ useSeoMeta({
           </div>
         </div>
 
+        <div>
+          <p class="text-sm uppercase tracking-[0.2em] text-gold-800">
+            Scan to connect
+          </p>
+          <p class="mt-2 text-sm text-ink-muted">
+            Scan with your phone camera for WhatsApp or AS Signature.
+          </p>
+          <div class="mt-4 grid grid-cols-2 gap-4 max-w-md">
+            <a
+              :href="WHATSAPP_URL"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex flex-col items-center gap-2 rounded-lg border border-gold-300/50 bg-gold-100/30 p-3 transition hover:border-gold-600"
+            >
+              <img
+                src="/images/whatsapp-qr.png"
+                alt="WhatsApp QR code"
+                width="160"
+                height="160"
+                class="h-36 w-36 object-contain sm:h-40 sm:w-40"
+              >
+              <span class="text-sm font-medium text-ink">WhatsApp</span>
+            </a>
+            <div class="flex flex-col items-center gap-2 rounded-lg border border-gold-300/50 bg-gold-100/30 p-3">
+              <img
+                src="/images/assignature-qr.png"
+                alt="AS Signature QR code"
+                width="160"
+                height="160"
+                class="h-36 w-36 object-contain sm:h-40 sm:w-40"
+              >
+              <span class="text-sm font-medium text-ink">AS Signature</span>
+            </div>
+          </div>
+        </div>
+
         <div v-if="vendor.storeEnabled">
           <p class="text-sm uppercase tracking-[0.2em] text-gold-800">
             Online Store
@@ -248,7 +284,7 @@ useSeoMeta({
             Find us
           </p>
           <h2 class="font-display mt-2 text-2xl text-ink">
-            AS Sanitary Napkins — Gudiyatham
+            {{ vendor.brandName }} — Gudiyatham
           </h2>
           <p class="mt-1 text-sm text-ink-muted">
             Cotton &amp; organic · map location
@@ -267,7 +303,7 @@ useSeoMeta({
       </div>
       <div class="mt-6 overflow-hidden border border-gold-300/50 bg-gold-100/40">
         <iframe
-          title="AS Sanitary Napkins on Google Maps"
+          :title="`${vendor.brandName} on Google Maps`"
           :src="MAP_EMBED_SRC"
           class="h-72 w-full border-0 sm:h-96"
           loading="lazy"
