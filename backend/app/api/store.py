@@ -79,6 +79,7 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=100)
     name: str = Field(min_length=1, max_length=100)
+    phone: str | None = Field(default=None, max_length=20)
 
 
 @router.post("/auth/register")
@@ -87,11 +88,20 @@ def store_register(
     vendor: Vendor = Depends(require_store_vendor),
     db: Session = Depends(get_db),
 ):
+    from app.core.phone import normalize_phone, phone_lookup_variants
+
     email = body.email.strip().lower()
+    phone = normalize_phone(body.phone)
     if db.scalar(select(User).where(User.email == email)):
         return error("Email already registered", status_code=409)
+    if phone:
+        variants = phone_lookup_variants(phone)
+        taken = db.scalar(select(User).where(User.phone.in_(variants)))
+        if taken:
+            return error("Mobile number already registered", status_code=409)
     user = User(
         email=email,
+        phone=phone,
         name=body.name.strip(),
         role="CUSTOMER",
         status="ACTIVE",
@@ -101,7 +111,12 @@ def store_register(
     db.add(user)
     db.flush()
     find_or_create_customer(
-        db, vendor_id=vendor.id, user_id=user.id, email=email, name=body.name.strip()
+        db,
+        vendor_id=vendor.id,
+        user_id=user.id,
+        email=email,
+        name=body.name.strip(),
+        phone=phone,
     )
     db.commit()
     db.refresh(user)

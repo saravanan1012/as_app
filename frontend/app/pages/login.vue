@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const auth = useAuthStore()
 const { resolveHome } = useRedirect()
-const email = ref('')
+const identifier = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const error = ref('')
@@ -9,12 +9,19 @@ const loading = ref(false)
 
 async function submit() {
   error.value = ''
+  const value = identifier.value.trim()
+  if (!value) {
+    error.value = 'Enter your email or mobile number.'
+    return
+  }
   loading.value = true
   try {
-    const user = await auth.login(email.value.trim(), password.value)
+    // API field is still named `email` for compat; value may be email or mobile
+    const user = await auth.login(value, password.value)
     await navigateTo(resolveHome(user))
   } catch (e: unknown) {
-    error.value = (e as { data?: { message?: string } })?.data?.message || 'Login failed'
+    const msg = (e as { data?: { message?: string, error?: string } })?.data
+    error.value = msg?.message || msg?.error || 'Login failed'
   } finally {
     loading.value = false
   }
@@ -27,27 +34,41 @@ async function submit() {
       Login
     </h1>
     <p class="mt-2 text-ink-muted">
-      Staff and customers use the same sign-in. You’ll be sent to the right home.
+      Use your email or 10-digit mobile number with your password.
     </p>
 
     <form
       class="mt-8 space-y-4"
+      novalidate
       @submit.prevent="submit"
     >
-      <UFormField label="Email">
-        <UInput
-          v-model="email"
-          type="email"
+      <div>
+        <label
+          for="login-identifier"
+          class="mb-1.5 block text-sm font-medium text-ink"
+        >
+          Mobile or email
+        </label>
+        <input
+          id="login-identifier"
+          v-model="identifier"
+          type="text"
+          inputmode="text"
+          name="identifier"
           required
-          size="lg"
-          class="w-full"
           autocomplete="username"
-        />
-      </UFormField>
-      <UFormField label="Password">
+          placeholder="9000000040 or you@email.com"
+          class="w-full rounded-md border border-gold-300/70 bg-white px-3 py-2.5 text-base text-ink outline-none ring-gold-600 focus:ring-2"
+        >
+      </div>
+      <UFormField
+        label="Password"
+        name="password"
+      >
         <UInput
           v-model="password"
           :type="showPassword ? 'text' : 'password'"
+          name="password"
           required
           size="lg"
           class="w-full"

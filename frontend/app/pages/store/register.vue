@@ -4,6 +4,7 @@ definePageMeta({ middleware: ['store-enabled'] })
 const auth = useAuthStore()
 const name = ref('')
 const email = ref('')
+const phone = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -12,7 +13,12 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await auth.registerStore(email.value.trim(), password.value, name.value.trim())
+    await auth.registerStore(
+      email.value.trim(),
+      password.value,
+      name.value.trim(),
+      phone.value.trim() || undefined
+    )
     await navigateTo('/store')
   } catch (e: unknown) {
     error.value = (e as { data?: { message?: string } })?.data?.message || 'Registration failed'
@@ -28,7 +34,7 @@ async function submit() {
       Create account
     </h1>
     <p class="mt-2 text-ink-muted">
-      Customer account for Store checkout and orders.
+      Customer account for Store checkout, orders, and reviews. Add a mobile to sign in with it later.
     </p>
     <form
       class="mt-8 space-y-4"
@@ -40,6 +46,7 @@ async function submit() {
           required
           size="lg"
           class="w-full"
+          autocomplete="name"
         />
       </UFormField>
       <UFormField label="Email">
@@ -49,6 +56,17 @@ async function submit() {
           required
           size="lg"
           class="w-full"
+          autocomplete="email"
+        />
+      </UFormField>
+      <UFormField label="Mobile (optional)">
+        <UInput
+          v-model="phone"
+          type="tel"
+          size="lg"
+          class="w-full"
+          autocomplete="tel"
+          placeholder="10-digit mobile"
         />
       </UFormField>
       <UFormField label="Password">
@@ -59,6 +77,7 @@ async function submit() {
           minlength="6"
           size="lg"
           class="w-full"
+          autocomplete="new-password"
         />
       </UFormField>
       <p

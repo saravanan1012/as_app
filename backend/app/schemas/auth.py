@@ -1,9 +1,21 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    """Login with email or mobile. `email` kept for API compat; `login` preferred."""
+
     password: str = Field(min_length=1)
+    email: str | None = Field(default=None, max_length=150)
+    login: str | None = Field(default=None, max_length=150)
+
+    @model_validator(mode="after")
+    def require_identifier(self):
+        ident = (self.login or self.email or "").strip()
+        if not ident:
+            raise ValueError("Email or mobile number is required")
+        # Normalize onto email so auth.login can keep using body.email
+        self.email = ident
+        return self
 
 
 class UserOut(BaseModel):

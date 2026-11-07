@@ -84,11 +84,14 @@ def find_or_create_customer(
     user_id: int,
     email: str | None,
     name: str | None,
+    phone: str | None = None,
 ) -> Customer:
     existing = db.scalar(
         select(Customer).where(Customer.vendor_id == vendor_id, Customer.user_id == user_id)
     )
     if existing:
+        if phone and not existing.phone:
+            existing.phone = phone
         return existing
     if email:
         by_email = db.scalar(
@@ -97,11 +100,14 @@ def find_or_create_customer(
         if by_email:
             if not by_email.user_id:
                 by_email.user_id = user_id
+            if phone and not by_email.phone:
+                by_email.phone = phone
             return by_email
     c = Customer(
         vendor_id=vendor_id,
         name=(name or email or "Online Customer")[:100],
         email=email,
+        phone=phone,
         party_type="CUSTOMER",
         acquisition_source="ONLINE",
         status="ACTIVE",

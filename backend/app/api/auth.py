@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import AuthUser, default_redirect, get_current_user, get_vendor_ctx
 from app.config import get_settings
+from app.core.phone import looks_like_email, phone_lookup_variants
 from app.core.responses import error, success
 from app.core.security import create_access_token, verify_password
 from app.core.vendor_context import VendorContext
@@ -27,11 +28,22 @@ def _user_payload(user: User, permissions: set[str], store_enabled: bool = False
     ).model_dump()
 
 
+def _find_user_by_login(db: Session, identifier: str) -> User | None:
+    ident = (identifier or "").strip()
+    if not ident:
+        return None
+    if looks_like_email(ident):
+        return db.scalar(select(User).where(User.email == ident.lower()))
+    variants = phone_lookup_variants(ident)
+    if not variants:
+        return None
+    return db.scalar(select(User).where(User.phone.in_(variants)))
+
+
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     settings = get_settings()
-    email = body.email.strip().lower()
-    user = db.scalar(select(User).where(User.email == email))
+    user = _find_user_by_login(db, body.email)
     if not user or not verify_password(body.password, user.password):
         return error("Invalid credentials", status_code=401)
     if user.status != "ACTIVE":

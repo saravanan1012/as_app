@@ -43,11 +43,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(email: string, password: string) {
+  async function login(identifier: string, password: string) {
     const { api } = useApi()
     const res = await api<AuthUser>('/auth/login', {
       method: 'POST',
-      body: { email, password }
+      body: { login: identifier, email: identifier, password }
     })
     user.value = res.data
     return res.data
@@ -62,11 +62,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function registerStore(email: string, password: string, name: string) {
+  async function registerStore(
+    email: string,
+    password: string,
+    name: string,
+    phone?: string
+  ) {
     const { api } = useApi()
     const res = await api<AuthUser>('/store/auth/register', {
       method: 'POST',
-      body: { email, password, name }
+      body: {
+        email,
+        password,
+        name,
+        ...(phone ? { phone } : {})
+      }
     })
     // register sets cookie; refresh profile
     await fetchMe()

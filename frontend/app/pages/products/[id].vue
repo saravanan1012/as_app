@@ -1,9 +1,14 @@
 <script setup lang="ts">
 const route = useRoute()
 const vendor = useVendorStore()
+const auth = useAuthStore()
 const cart = useCartStore()
 const { api } = useApi()
 const id = computed(() => Number(route.params.id))
+
+const reviewsEnabled = computed(
+  () => vendor.storeEnabled && (vendor.vendor?.features?.reviews !== false)
+)
 
 const { data, error } = await useAsyncData(() => `product-${id.value}`, () =>
   api<{
@@ -20,18 +25,20 @@ const { data, error } = await useAsyncData(() => `product-${id.value}`, () =>
 
 const product = computed(() => data.value?.data)
 
-const { data: reviewsRes } = await useAsyncData(
+type ReviewRow = {
+  id: number
+  rating: number
+  comment?: string | null
+  is_verified_purchase?: boolean
+  created_at?: string
+}
+
+const { data: reviewsRes, refresh: refreshReviews } = await useAsyncData(
   () => `product-reviews-${id.value}`,
   async () => {
-    if (!vendor.storeEnabled) return null
+    if (!reviewsEnabled.value) return null
     try {
-      return await api<Array<{
-        id: number
-        rating: number
-        comment?: string | null
-        is_verified_purchase?: boolean
-        created_at?: string
-      }>>(`/store/products/${id.value}/reviews`)
+      return await api<ReviewRow[]>(`/store/products/${id.value}/reviews`)
     } catch {
       return null
     }
@@ -44,6 +51,39 @@ const avgRating = computed(() => {
   const sum = reviews.value.reduce((acc, r) => acc + Number(r.rating || 0), 0)
   return sum / reviews.value.length
 })
+
+const reviewRating = ref(5)
+const reviewComment = ref('')
+const reviewError = ref('')
+const reviewHint = ref('')
+const reviewLoading = ref(false)
+
+async function submitReview() {
+  reviewError.value = ''
+  reviewHint.value = ''
+  if (!auth.isLoggedIn) {
+    reviewError.value = 'Please log in to write a review.'
+    return
+  }
+  reviewLoading.value = true
+  try {
+    await api(`/store/products/${id.value}/reviews`, {
+      method: 'POST',
+      body: {
+        rating: Number(reviewRating.value),
+        comment: reviewComment.value.trim() || null
+      }
+    })
+    reviewHint.value = 'Thanks — your review was saved.'
+    reviewComment.value = ''
+    await refreshReviews()
+  } catch (e: unknown) {
+    reviewError.value
+      = (e as { data?: { message?: string } })?.data?.message || 'Could not save review'
+  } finally {
+    reviewLoading.value = false
+  }
+}
 
 function addToCart() {
   if (!product.value) return
@@ -144,19 +184,93 @@ function stars(n: number | null) {
         </div>
 
         <section
-          v-if="reviews.length"
+          v-if="reviewsEnabled"
           class="mt-12 border-t border-gold-300/50 pt-8"
         >
           <h2 class="font-display text-2xl text-ink">
             Customer reviews
           </h2>
-          <ul class="mt-6 space-y-4">
+
+          <div
+            v-if="auth.isLoggedIn"
+            class="mt-6 space-y-3 rounded-lg border border-gold-300/50 bg-gold-100/30 p-4"
+          >
+            <p class="text-sm font-medium text-ink">
+              Write a review
+            </p>
+            <UFormField label="Rating">
+              <USelect
+                v-model="reviewRating"
+                :items="[
+                  { label: '5 — Excellent', value: 5 },
+                  { label: '4 — Good', value: 4 },
+                  { label: '3 — Okay', value: 3 },
+                  { label: '2 — Fair', value: 2 },
+                  { label: '1 — Poor', value: 1 }
+                ]"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="Comment (optional)">
+              <UTextarea
+                v-model="reviewComment"
+                :rows="3"
+                class="w-full"
+                placeholder="What did you like about this product?"
+              />
+            </UFormField>
+            <p
+              v-if="reviewError"
+              class="text-sm text-red-700"
+            >
+              {{ reviewError }}
+            </p>
+            <p
+              v-if="reviewHint"
+              class="text-sm text-ink"
+            >
+              {{ reviewHint }}
+            </p>
+            <UButton
+              :loading="reviewLoading"
+              @click="submitReview"
+            >
+              Submit review
+            </UButton>
+          </div>
+          <p
+            v-else
+            class="mt-4 text-sm text-ink-muted"
+          >
+            <NuxtLink
+              to="/login"
+              class="text-gold-800 underline-offset-2 hover:underline"
+            >
+              Log in
+            </NuxtLink>
+            or
+            <NuxtLink
+              to="/store/register"
+              class="text-gold-800 underline-offset-2 hover:underline"
+            >
+              create an account
+            </NuxtLink>
+            to write a review.
+          </p>
+
+          <ul
+            v-if="reviews.length"
+            class="mt-6 space-y-4"
+          >
             <li
               v-for="r in reviews"
               :key="r.id"
               class="rounded-lg border border-gold-300/40 bg-gold-100/40 px-4 py-3"
             >
-              <p class="text-sm text-gold-800" aria-hidden="true">
+              <p
+                class="text-sm text-gold-800"
+                aria-hidden="true"
+              >
                 {{ stars(r.rating) }}
               </p>
               <p class="mt-1 text-sm leading-relaxed text-ink-muted">
@@ -170,6 +284,12 @@ function stars(n: number | null) {
               </p>
             </li>
           </ul>
+          <p
+            v-else
+            class="mt-6 text-sm text-ink-muted"
+          >
+            No reviews yet — be the first.
+          </p>
         </section>
       </div>
     </div>

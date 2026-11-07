@@ -347,3 +347,71 @@ def test_pincode_lookup_and_cart_preview_zones(client):
     assert ka["igst_amount"] > 0
     assert ka["cgst_amount"] == 0
     assert ka["sgst_amount"] == 0
+
+
+@pytest.mark.usefixtures("db_ready")
+def test_login_with_phone_and_product_review(client):
+    _enable_store(client, enabled=True)
+    suf = _uid()
+    email = f"rev_{suf}@example.com"
+    phone = f"98{suf[:8]}"
+    assert len(phone) == 10
+
+    _login(client)
+    item = client.post(
+        "/api/items",
+        json={
+            "code": f"REV{suf}",
+            "name": f"Review Item {suf}",
+            "sale_price": 99,
+            "is_online_sale": True,
+        },
+    )
+    assert item.status_code == 201, item.text
+    item_id = item.json()["data"]["id"]
+
+    client.post("/api/auth/logout")
+    reg = client.post(
+        "/api/store/auth/register",
+        headers=_headers(),
+        json={
+            "email": email,
+            "password": "User@123",
+            "name": "Reviewer",
+            "phone": phone,
+        },
+    )
+    assert reg.status_code == 201, reg.text
+
+    client.post("/api/auth/logout")
+    by_phone = client.post(
+        "/api/auth/login",
+        json={"email": phone, "password": "User@123"},
+    )
+    assert by_phone.status_code == 200, by_phone.text
+    assert by_phone.json()["data"]["email"] == email
+
+    client.post("/api/auth/logout")
+    by_email = _login(client, email)
+    assert by_email.status_code == 200
+
+    created = client.post(
+        f"/api/store/products/{item_id}/reviews",
+        headers=_headers(),
+        json={"rating": 5, "comment": "Great product"},
+    )
+    assert created.status_code in (200, 201), created.text
+    assert created.json()["data"]["rating"] == 5
+
+    listed = client.get(f"/api/store/products/{item_id}/reviews", headers=_headers())
+    assert listed.status_code == 200, listed.text
+    ratings = [r["rating"] for r in listed.json()["data"]]
+    assert 5 in ratings
+
+    client.post("/api/auth/logout")
+    guest = client.post(
+        f"/api/store/products/{item_id}/reviews",
+        headers=_headers(),
+        json={"rating": 4, "comment": "nope"},
+    )
+    assert guest.status_code in (401, 403)
