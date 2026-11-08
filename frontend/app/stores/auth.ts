@@ -83,6 +83,17 @@ export const useAuthStore = defineStore('auth', () => {
     return res.data
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const { api } = useApi()
+    await api('/auth/change-password', {
+      method: 'POST',
+      body: {
+        current_password: currentPassword,
+        new_password: newPassword
+      }
+    })
+  }
+
   return {
     user,
     ready,
@@ -92,6 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMe,
     login,
     logout,
-    registerStore
+    registerStore,
+    changePassword
   }
 })

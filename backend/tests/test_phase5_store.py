@@ -415,3 +415,19 @@ def test_login_with_phone_and_product_review(client):
         json={"rating": 4, "comment": "nope"},
     )
     assert guest.status_code in (401, 403)
+
+
+@pytest.mark.usefixtures("db_ready")
+def test_change_password(client):
+    r = client.post("/api/auth/login", json={"email": "direct@as.com", "password": "User@123"})
+    assert r.status_code == 200, r.text
+    bad = client.post("/api/auth/change-password", json={"current_password": "wrong", "new_password": "User@456"})
+    assert bad.status_code == 400
+    ok = client.post("/api/auth/change-password", json={"current_password": "User@123", "new_password": "User@456"})
+    assert ok.status_code == 200, ok.text
+    client.post("/api/auth/logout")
+    # restore original so other tests / demos keep working
+    login_new = client.post("/api/auth/login", json={"email": "direct@as.com", "password": "User@456"})
+    assert login_new.status_code == 200, login_new.text
+    restore = client.post("/api/auth/change-password", json={"current_password": "User@456", "new_password": "User@123"})
+    assert restore.status_code == 200, restore.text

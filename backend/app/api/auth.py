@@ -7,11 +7,11 @@ from app.api.deps import AuthUser, default_redirect, get_current_user, get_vendo
 from app.config import get_settings
 from app.core.phone import looks_like_email, phone_lookup_variants
 from app.core.responses import error, success
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, hash_password, verify_password
 from app.core.vendor_context import VendorContext
 from app.db import get_db
 from app.models import User
-from app.schemas.auth import LoginRequest, UserOut
+from app.schemas.auth import ChangePasswordRequest, LoginRequest, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -111,3 +111,21 @@ def me(
         "OK",
         _user_payload(db_user, user.permissions, store_enabled),
     )
+
+
+@router.post("/change-password")
+def change_password(
+    body: ChangePasswordRequest,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_user = db.get(User, user.id)
+    if not db_user:
+        return error("Unauthorized", status_code=401)
+    if not verify_password(body.current_password, db_user.password):
+        return error("Current password is incorrect", status_code=400)
+    if body.current_password == body.new_password:
+        return error("New password must be different", status_code=400)
+    db_user.password = hash_password(body.new_password)
+    db.commit()
+    return success("Password updated", {"ok": True})

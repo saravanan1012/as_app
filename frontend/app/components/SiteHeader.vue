@@ -16,6 +16,94 @@ const links = computed(() => {
   }
   return items
 })
+
+const passwordOpen = ref(false)
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordError = ref('')
+const passwordHint = ref('')
+const passwordLoading = ref(false)
+
+const initials = computed(() => {
+  const name = auth.user?.name?.trim() || auth.user?.email || '?'
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+})
+
+const accountItems = computed(() => {
+  const items: Array<Array<Record<string, unknown>>> = [
+    [
+      {
+        label: auth.user?.name || 'Account',
+        description: auth.user?.email,
+        type: 'label'
+      }
+    ],
+    [
+      {
+        label: isCustomer.value ? 'My orders' : 'Account home',
+        icon: 'i-lucide-package',
+        to: isCustomer.value ? '/store/orders' : resolveHome()
+      },
+      {
+        label: 'Change password',
+        icon: 'i-lucide-key-round',
+        onSelect: () => {
+          passwordError.value = ''
+          passwordHint.value = ''
+          currentPassword.value = ''
+          newPassword.value = ''
+          confirmPassword.value = ''
+          passwordOpen.value = true
+        }
+      }
+    ],
+    [
+      {
+        label: 'Logout',
+        icon: 'i-lucide-log-out',
+        color: 'error',
+        onSelect: async () => {
+          await auth.logout()
+          await navigateTo('/login')
+        }
+      }
+    ]
+  ]
+  return items
+})
+
+async function submitPassword() {
+  passwordError.value = ''
+  passwordHint.value = ''
+  if (newPassword.value.length < 6) {
+    passwordError.value = 'New password must be at least 6 characters.'
+    return
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = 'New password and confirmation do not match.'
+    return
+  }
+  passwordLoading.value = true
+  try {
+    await auth.changePassword(currentPassword.value, newPassword.value)
+    passwordHint.value = 'Password updated.'
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    setTimeout(() => {
+      passwordOpen.value = false
+      passwordHint.value = ''
+    }, 800)
+  } catch (e: unknown) {
+    passwordError.value
+      = (e as { data?: { message?: string } })?.data?.message || 'Could not update password'
+  } finally {
+    passwordLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -66,15 +154,31 @@ const links = computed(() => {
           </span>
         </NuxtLink>
 
-        <UButton
+        <UDropdownMenu
           v-if="auth.isLoggedIn"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          :to="isCustomer ? '/store/orders' : resolveHome()"
+          :items="accountItems"
+          :content="{ align: 'end', sideOffset: 8 }"
         >
-          {{ isCustomer ? 'My orders' : 'Account' }}
-        </UButton>
+          <UTooltip
+            :text="auth.user?.name || 'Account'"
+            :content="{ side: 'bottom' }"
+          >
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              square
+              aria-label="Account menu"
+              :title="auth.user?.name || 'Account'"
+            >
+              <UAvatar
+                :text="initials"
+                size="xs"
+                class="bg-gold-700 text-white"
+              />
+            </UButton>
+          </UTooltip>
+        </UDropdownMenu>
         <UButton
           v-else
           to="/login"
@@ -96,5 +200,77 @@ const links = computed(() => {
         {{ link.label }}
       </NuxtLink>
     </nav>
+
+    <UModal
+      v-model:open="passwordOpen"
+      title="Change password"
+      description="Enter your current password, then choose a new one."
+    >
+      <template #body>
+        <form
+          class="space-y-4"
+          @submit.prevent="submitPassword"
+        >
+          <UFormField label="Current password">
+            <UInput
+              v-model="currentPassword"
+              type="password"
+              required
+              autocomplete="current-password"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="New password">
+            <UInput
+              v-model="newPassword"
+              type="password"
+              required
+              minlength="6"
+              autocomplete="new-password"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Confirm new password">
+            <UInput
+              v-model="confirmPassword"
+              type="password"
+              required
+              minlength="6"
+              autocomplete="new-password"
+              class="w-full"
+            />
+          </UFormField>
+          <p
+            v-if="passwordError"
+            class="text-sm text-red-700"
+          >
+            {{ passwordError }}
+          </p>
+          <p
+            v-if="passwordHint"
+            class="text-sm text-ink"
+          >
+            {{ passwordHint }}
+          </p>
+        </form>
+      </template>
+      <template #footer="{ close }">
+        <div class="flex justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="close()"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            :loading="passwordLoading"
+            @click="submitPassword"
+          >
+            Update password
+          </UButton>
+        </div>
+      </template>
+    </UModal>
   </header>
 </template>
