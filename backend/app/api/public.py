@@ -111,6 +111,8 @@ def public_product(
         select(ItemImage).where(ItemImage.item_id == item_id).order_by(ItemImage.sort_order, ItemImage.id)
     ).all()
     d = row(it, PRODUCT_FIELDS + ["is_online_sale", "description"])
-    d["images"] = [row(img, ["id", "path", "sort_order", "is_primary"]) for img in images]
+    from app.services.item_media import serialize_media
+
+    d["images"] = [serialize_media(img) for img in images]
     d["store_enabled"] = store_enabled(vendor)
     return success("Product", d)

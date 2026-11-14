@@ -53,7 +53,7 @@ Walk-in Direct Customer (direct@as.com)   ← independent, no parent
 
 | Email | Role | Notes |
 |-------|------|-------|
-| `distributor@as.com` | DISTRIBUTOR | Primary tree; sample SO to dealer |
+| `.` | DISTRIBUTOR | Primary tree; sample SO to dealer |
 | `distributor2@as.com` | DISTRIBUTOR | Second region |
 | `dealer@as.com` | DEALER | Under Chennai dist; SO to retailer |
 | `dealer2@as.com` / `dealer3@as.com` | DEALER | Extra downline |

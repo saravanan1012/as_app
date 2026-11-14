@@ -73,6 +73,6 @@ See `../docs/phase-4/README.md`.
 ### Phase 5 (Store / ecommerce)
 - `/api/store/*` — gated on `store_enabled` (header `x-vendor-slug`)
 - Register, catalog, offer validate, COD + Razorpay checkout, reviews, my-orders
-- `/api/uploads/items/{id}/images` — staff media upload
+- `/api/uploads/items/{id}/images` — staff media list/upload (images + video); PATCH/DELETE per image id
 
 See `../docs/phase-5/README.md`.

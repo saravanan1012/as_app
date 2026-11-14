@@ -241,7 +241,9 @@ def get_product(
     d["available_qty"] = available_qty(
         db, vendor_id=vendor.id, item_id=it.id, location_id=vendor.default_location_id
     )
-    d["images"] = [row(img, ["id", "path", "sort_order", "is_primary"]) for img in images]
+    from app.services.item_media import serialize_media
+
+    d["images"] = [serialize_media(img) for img in images]
     return success("Product", d)
 
 

@@ -1,15 +1,32 @@
 <script setup lang="ts">
+import { mediaKind } from '~/utils/mediaKind'
+
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
 const route = useRoute()
 const auth = useAuthStore()
 const { api } = useApi()
 const id = computed(() => Number(route.params.id))
+const canWrite = computed(() => auth.hasPermission('catalog.items.write'))
 
 const { data, refresh } = await useAdminAsyncData(() => `item-${id.value}`, () =>
   api<Record<string, any>>(`/items/${id.value}`)
 )
 const item = computed(() => data.value?.data)
+
+type MediaRow = {
+  id: number
+  path: string
+  sort_order: number
+  is_primary: boolean
+  media_type?: 'image' | 'video'
+}
+
+const { data: mediaRes, refresh: refreshMedia } = await useAdminAsyncData(
+  () => `item-media-${id.value}`,
+  () => api<{ data: MediaRow[] }>(`/uploads/items/${id.value}/images`)
+)
+const mediaItems = computed(() => mediaRes.value?.data?.data || [])
 
 const form = reactive({
   name: '',
@@ -23,8 +40,93 @@ const form = reactive({
   description: ''
 })
 const error = ref('')
+const mediaError = ref('')
 const saving = ref(false)
 const priceSaving = ref(false)
+const uploading = ref(false)
+const mediaBusyId = ref<number | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const previewOpen = ref(false)
+const previewIndex = ref(0)
+
+const previewItem = computed(() => mediaItems.value[previewIndex.value] || null)
+
+function kindOf(m: MediaRow) {
+  return m.media_type || mediaKind(m.path)
+}
+
+function openPreview(index: number) {
+  previewIndex.value = index
+  previewOpen.value = true
+}
+
+function previewPrev() {
+  if (!mediaItems.value.length) return
+  previewIndex.value = (previewIndex.value - 1 + mediaItems.value.length) % mediaItems.value.length
+}
+
+function previewNext() {
+  if (!mediaItems.value.length) return
+  previewIndex.value = (previewIndex.value + 1) % mediaItems.value.length
+}
+
+async function onFilesSelected(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  if (!files.length) return
+  mediaError.value = ''
+  uploading.value = true
+  try {
+    for (const file of files) {
+      const fd = new FormData()
+      fd.append('file', file)
+      await api(`/uploads/items/${id.value}/images`, { method: 'POST', body: fd })
+    }
+    await Promise.all([refreshMedia(), refresh()])
+  } catch (e: unknown) {
+    mediaError.value
+      = (e as { data?: { message?: string } })?.data?.message || 'Upload failed'
+  } finally {
+    uploading.value = false
+    input.value = ''
+  }
+}
+
+async function setPrimary(m: MediaRow) {
+  if (kindOf(m) === 'video') {
+    mediaError.value = 'Only images can be primary'
+    return
+  }
+  mediaError.value = ''
+  mediaBusyId.value = m.id
+  try {
+    await api(`/uploads/items/${id.value}/images/${m.id}?is_primary=true`, { method: 'PATCH' })
+    await Promise.all([refreshMedia(), refresh()])
+  } catch (e: unknown) {
+    mediaError.value
+      = (e as { data?: { message?: string } })?.data?.message || 'Could not set primary'
+  } finally {
+    mediaBusyId.value = null
+  }
+}
+
+async function removeMedia(m: MediaRow) {
+  if (!confirm('Remove this media file?')) return
+  mediaError.value = ''
+  mediaBusyId.value = m.id
+  try {
+    await api(`/uploads/items/${id.value}/images/${m.id}`, { method: 'DELETE' })
+    if (previewOpen.value && previewItem.value?.id === m.id) {
+      previewOpen.value = false
+    }
+    await Promise.all([refreshMedia(), refresh()])
+  } catch (e: unknown) {
+    mediaError.value
+      = (e as { data?: { message?: string } })?.data?.message || 'Delete failed'
+  } finally {
+    mediaBusyId.value = null
+  }
+}
 
 const { data: taxCatsRes } = await useAdminAsyncData('item-tax-categories', () =>
   api<Array<Record<string, any>>>('/tax-categories')
@@ -122,7 +224,7 @@ async function savePrices() {
     :description="item.code"
   >
     <form
-      v-if="auth.hasPermission('catalog.items.write')"
+      v-if="canWrite"
       class="max-w-lg space-y-4"
       @submit.prevent="save"
     >
@@ -211,8 +313,181 @@ async function savePrices() {
       </UButton>
     </form>
 
+    <section class="mt-10 max-w-3xl space-y-4">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="font-display text-xl">
+            Media
+          </h2>
+          <p class="text-sm text-ink-muted">
+            Images (jpg/png/webp/gif, max 5MB) and videos (mp4/webm/mov, max 50MB). Primary image is used in listings.
+          </p>
+        </div>
+        <div
+          v-if="canWrite"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <input
+            ref="fileInput"
+            type="file"
+            class="hidden"
+            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov"
+            multiple
+            @change="onFilesSelected"
+          >
+          <UButton
+            type="button"
+            :loading="uploading"
+            @click="fileInput?.click()"
+          >
+            Upload
+          </UButton>
+        </div>
+      </div>
+
+      <p
+        v-if="mediaError"
+        class="text-sm text-red-700"
+      >
+        {{ mediaError }}
+      </p>
+
+      <p
+        v-if="!mediaItems.length"
+        class="text-sm text-ink-muted"
+      >
+        No images or videos yet.
+      </p>
+
+      <div
+        v-else
+        class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"
+      >
+        <div
+          v-for="(m, idx) in mediaItems"
+          :key="m.id"
+          class="group relative aspect-square overflow-hidden border border-gold-300/60 bg-gold-100/40"
+        >
+          <button
+            type="button"
+            class="absolute inset-0 z-[1] block h-full w-full cursor-zoom-in"
+            :aria-label="`View ${kindOf(m)}`"
+            @click="openPreview(idx)"
+          />
+          <video
+            v-if="kindOf(m) === 'video'"
+            :src="m.path"
+            class="h-full w-full object-cover"
+            muted
+            playsinline
+            preload="metadata"
+          />
+          <img
+            v-else
+            :src="m.path"
+            :alt="`${item.name} media`"
+            class="h-full w-full object-cover"
+          >
+          <div class="pointer-events-none absolute inset-x-0 top-0 z-[2] flex justify-between gap-1 p-1.5">
+            <span
+              v-if="m.is_primary"
+              class="bg-gold-800 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white"
+            >
+              Primary
+            </span>
+            <span
+              v-if="kindOf(m) === 'video'"
+              class="ml-auto bg-ink/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white"
+            >
+              Video
+            </span>
+          </div>
+          <div
+            v-if="canWrite"
+            class="absolute inset-x-0 bottom-0 z-[2] flex gap-1 p-1.5 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100"
+          >
+            <UButton
+              v-if="kindOf(m) === 'image' && !m.is_primary"
+              size="xs"
+              variant="soft"
+              color="neutral"
+              class="pointer-events-auto"
+              :loading="mediaBusyId === m.id"
+              @click.stop="setPrimary(m)"
+            >
+              Primary
+            </UButton>
+            <UButton
+              size="xs"
+              variant="soft"
+              color="error"
+              class="pointer-events-auto ml-auto"
+              :loading="mediaBusyId === m.id"
+              @click.stop="removeMedia(m)"
+            >
+              Remove
+            </UButton>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <UModal
+      v-model:open="previewOpen"
+      :title="previewItem ? (kindOf(previewItem) === 'video' ? 'Video' : 'Image') : 'Media'"
+      :description="item.name"
+      class="max-w-3xl"
+    >
+      <template #body>
+        <div
+          v-if="previewItem"
+          class="space-y-3"
+        >
+          <div class="relative aspect-video overflow-hidden bg-ink/5">
+            <video
+              v-if="kindOf(previewItem) === 'video'"
+              :key="previewItem.path"
+              :src="previewItem.path"
+              class="h-full w-full object-contain"
+              controls
+              playsinline
+              autoplay
+            />
+            <img
+              v-else
+              :src="previewItem.path"
+              :alt="item.name"
+              class="h-full w-full object-contain"
+            >
+          </div>
+          <div
+            v-if="mediaItems.length > 1"
+            class="flex items-center justify-between gap-2"
+          >
+            <UButton
+              variant="outline"
+              color="neutral"
+              @click="previewPrev"
+            >
+              Previous
+            </UButton>
+            <p class="text-sm text-ink-muted">
+              {{ previewIndex + 1 }} / {{ mediaItems.length }}
+            </p>
+            <UButton
+              variant="outline"
+              color="neutral"
+              @click="previewNext"
+            >
+              Next
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
     <section
-      v-if="auth.hasPermission('catalog.items.write')"
+      v-if="canWrite"
       class="mt-10 max-w-xl space-y-3"
     >
       <h2 class="font-display text-xl">
@@ -255,8 +530,8 @@ async function savePrices() {
     </section>
 
     <dl
-      v-else
-      class="grid gap-3 text-sm sm:grid-cols-2"
+      v-if="!canWrite"
+      class="mt-6 grid gap-3 text-sm sm:grid-cols-2"
     >
       <div>
         <dt class="text-ink-muted">

@@ -28,7 +28,14 @@ Store catalog, checkout (COD + Razorpay), offers, payment events, reviews, uploa
 | `GET/POST /products/{id}/reviews` | read / cookie | Verified purchase when prior SO |
 | `GET /my-orders` | cookie | Ecommerce orders for linked customer |
 
-Staff uploads: `POST /api/uploads/items/{id}/images` (`catalog.items.write`).
+Staff media (`catalog.items.write` / `.read`):
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/api/uploads/items/{id}/images` | List images + videos (`media_type`) |
+| `POST` | `/api/uploads/items/{id}/images` | Upload jpg/png/webp/gif (5MB) or mp4/webm/mov (50MB); `?is_primary=true` for images |
+| `PATCH` | `/api/uploads/items/{id}/images/{image_id}?is_primary=true` | Set primary image |
+| `DELETE` | `/api/uploads/items/{id}/images/{image_id}` | Remove media + file |
 
 ## Payments
 
