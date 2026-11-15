@@ -30,9 +30,24 @@ class Settings(BaseSettings):
     razorpay_key_secret: str = ""
     razorpay_mock: bool = True
 
+    # SMTP — empty host/password disables outbound mail (tests/local without credentials).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+    # Comma-separated recipients for new-order packing alerts (defaults to smtp_user).
+    order_notify_to: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def order_notify_recipients(self) -> list[str]:
+        raw = self.order_notify_to or self.smtp_user
+        return [e.strip() for e in raw.split(",") if e.strip()]
 
 
 @lru_cache

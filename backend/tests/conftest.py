@@ -11,6 +11,10 @@ os.environ.setdefault(
     "postgresql+psycopg2://as:as_dev@localhost:5433/as_app",
 )
 os.environ.setdefault("AUTH_SECRET", "test-secret-phase1-min-32-characters!!")
+# Never send real mail from pytest (compose may inject host SMTP_*).
+os.environ["SMTP_HOST"] = ""
+os.environ["SMTP_PASSWORD"] = ""
+os.environ["ORDER_NOTIFY_TO"] = ""
 
 
 @pytest.fixture(scope="session")

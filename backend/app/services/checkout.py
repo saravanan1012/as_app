@@ -611,7 +611,8 @@ def checkout_razorpay_verify(
     razorpay_payment_id: str,
     razorpay_signature: str,
     created_by: str | None = None,
-) -> SaleOrder:
+) -> tuple[SaleOrder, bool]:
+    """Returns (sale_order, newly_paid) — newly_paid is False on idempotent replay."""
     if not store_enabled(vendor):
         raise CheckoutError("Store is disabled")
     key_id, key_secret, mock = credentials_for_vendor(vendor.settings if isinstance(vendor.settings, dict) else {})
@@ -634,7 +635,7 @@ def checkout_razorpay_verify(
     if existing and existing.sale_order_id:
         so = db.get(SaleOrder, existing.sale_order_id)
         if so:
-            return so
+            return so, False
 
     try:
         so = mark_sale_order_paid(
@@ -677,7 +678,7 @@ def checkout_razorpay_verify(
         )
     )
     db.flush()
-    return so
+    return so, True
 
 
 def handle_razorpay_webhook(
@@ -708,6 +709,7 @@ def handle_razorpay_webhook(
         return {"duplicate": True, "event_id": event_id}
 
     so = None
+    newly_paid = False
     if razorpay_order_id:
         so = db.scalar(
             select(SaleOrder).where(
@@ -727,6 +729,7 @@ def handle_razorpay_webhook(
                     payment_method="UPI",
                     created_by="webhook",
                 )
+                newly_paid = True
             except SalesError as e:
                 raise CheckoutError(str(e)) from e
 
@@ -743,7 +746,12 @@ def handle_razorpay_webhook(
         )
     )
     db.flush()
-    return {"duplicate": False, "event_id": event_id, "sale_order_id": so.id if so else None}
+    return {
+        "duplicate": False,
+        "event_id": event_id,
+        "sale_order_id": so.id if so else None,
+        "newly_paid": newly_paid,
+    }
 
 
 def available_qty(db: Session, *, vendor_id: int, item_id: int, location_id: int | None) -> int:

@@ -355,6 +355,9 @@ def store_checkout_cod(
     except CheckoutError as e:
         db.rollback()
         return error(str(e), status_code=400)
+    from app.services.email import notify_new_order
+
+    notify_new_order(db, so)
     return success(
         "Order placed",
         {
@@ -400,7 +403,7 @@ def store_razorpay_verify(
 ):
     user, vendor = ctx
     try:
-        so = checkout_razorpay_verify(
+        so, newly_paid = checkout_razorpay_verify(
             db,
             vendor=vendor,
             order_code=body.order_code,
@@ -414,6 +417,10 @@ def store_razorpay_verify(
     except CheckoutError as e:
         db.rollback()
         return error(str(e), status_code=400)
+    if newly_paid:
+        from app.services.email import notify_new_order
+
+        notify_new_order(db, so)
     return success(
         "Payment recorded",
         {
@@ -438,6 +445,12 @@ async def store_razorpay_webhook(
     except CheckoutError as e:
         db.rollback()
         return error(str(e), status_code=400)
+    if result.get("newly_paid") and result.get("sale_order_id"):
+        from app.services.email import notify_new_order
+
+        so = db.get(SaleOrder, int(result["sale_order_id"]))
+        if so:
+            notify_new_order(db, so)
     return success("Webhook processed", result)
 
 

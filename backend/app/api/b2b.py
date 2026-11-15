@@ -369,6 +369,9 @@ def create_order(
     except SalesError as e:
         db.rollback()
         return error(str(e), status_code=400)
+    from app.services.email import notify_new_order
+
+    notify_new_order(db, so)
     return success("Created", _so_payload(db, so), status_code=201)
 
 
