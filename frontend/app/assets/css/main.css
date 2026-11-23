@@ -46,6 +46,20 @@ body {
   font-optical-sizing: auto;
 }
 
+/* Clickable affordance on interactive controls */
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]),
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;

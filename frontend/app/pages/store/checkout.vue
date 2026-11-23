@@ -30,6 +30,8 @@ type CartPreview = {
   handling_charge: number
   total: number
   free_shipping_applied?: boolean
+  offer_code?: string | null
+  offer_error?: string | null
   gst_enabled?: boolean
   same_state?: boolean
   taxable?: number
@@ -216,6 +218,20 @@ const addressSummary = computed(() => {
   return parts.join(', ')
 })
 
+const offerError = computed(() => {
+  const code = offerCode.value.trim()
+  if (!code) return ''
+  return (preview.value?.offer_error || '').trim()
+})
+
+const canPay = computed(() => {
+  if (!agreePolicies.value) return false
+  if (previewError.value) return false
+  if (!preview.value) return false
+  if (offerError.value) return false
+  return true
+})
+
 async function place() {
   error.value = ''
   if (!agreePolicies.value) {
@@ -227,10 +243,22 @@ async function place() {
     editingAddress.value = true
     return
   }
+  if (offerError.value) {
+    error.value = offerError.value
+    return
+  }
+  if (!preview.value || previewError.value) {
+    error.value = previewError.value || 'Could not calculate totals. Refresh and try again.'
+    return
+  }
   loading.value = true
   successCode.value = ''
   const items = cart.lines.map(l => ({ item_id: l.item_id, quantity: l.quantity }))
-  const body = { items, address, offer_code: offerCode.value || null }
+  const body = {
+    items,
+    address,
+    offer_code: offerCode.value.trim() || null
+  }
   try {
     const created = await api<{
       order_code: string
@@ -413,6 +441,12 @@ async function place() {
           @blur="refreshPreview"
         />
       </UFormField>
+      <p
+        v-if="offerError"
+        class="text-sm text-red-700"
+      >
+        {{ offerError }}
+      </p>
 
       <div class="rounded-lg border border-gold-300/50 bg-gold-100/30 px-4 py-3 text-sm text-ink">
         <p class="text-xs uppercase tracking-[0.15em] text-gold-800">
@@ -423,7 +457,9 @@ async function place() {
             <dt class="text-ink-muted">
               Items
             </dt>
-            <dd>₹{{ Number(preview?.subtotal ?? cart.subtotal).toFixed(0) }}</dd>
+            <dd>
+              {{ preview ? `₹${Number(preview.subtotal).toFixed(0)}` : '—' }}
+            </dd>
           </div>
           <div
             v-if="Number(preview?.discount || 0) > 0"
@@ -483,7 +519,10 @@ async function place() {
               Delivery
             </dt>
             <dd class="text-right">
-              <template v-if="preview && Number(preview.shipping_charge) === 0">
+              <template v-if="!preview">
+                —
+              </template>
+              <template v-else-if="Number(preview.shipping_charge) === 0">
                 <span
                   v-if="Number(
                     (preview.delivery_zone === 'other_state'
@@ -499,13 +538,15 @@ async function place() {
                 <span class="font-medium text-ink">₹0</span>
               </template>
               <template v-else>
-                ₹{{ Number(preview?.shipping_charge ?? 0).toFixed(0) }}
+                ₹{{ Number(preview.shipping_charge).toFixed(0) }}
               </template>
             </dd>
           </div>
           <div class="flex justify-between gap-4 border-t border-gold-300/40 pt-2 text-base font-semibold">
             <dt>Total</dt>
-            <dd>₹{{ Number(preview?.total ?? cart.subtotal).toFixed(0) }}</dd>
+            <dd>
+              {{ preview ? `₹${Number(preview.total).toFixed(0)}` : '—' }}
+            </dd>
           </div>
         </dl>
         <p
@@ -514,7 +555,10 @@ async function place() {
         >
           {{ deliveryEtaLabel }}
         </p>
-        <p class="mt-1 text-xs text-ink-muted">
+        <p
+          v-if="preview"
+          class="mt-1 text-xs text-ink-muted"
+        >
           {{ shippingHint }}
         </p>
         <p
@@ -562,15 +606,26 @@ async function place() {
         {{ error }}
       </p>
 
-      <UButton
-        type="submit"
-        size="xl"
-        block
-        :loading="loading"
-        :disabled="!agreePolicies"
-      >
-        Pay with Razorpay
-      </UButton>
+      <div class="flex flex-col gap-3">
+        <UButton
+          type="submit"
+          size="xl"
+          block
+          :loading="loading"
+          :disabled="!canPay"
+        >
+          Pay with Razorpay
+        </UButton>
+        <UButton
+          to="/store"
+          size="xl"
+          block
+          color="neutral"
+          variant="outline"
+        >
+          Continue shopping
+        </UButton>
+      </div>
     </form>
   </div>
 </template>

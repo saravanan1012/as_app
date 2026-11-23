@@ -4,6 +4,7 @@ definePageMeta({ middleware: ['store-enabled'] })
 const { api } = useApi()
 const cart = useCartStore()
 const vendor = useVendorStore()
+const { tryAddToCart } = useCartFeedback()
 
 const { data, status } = await useAsyncData('store-products', () =>
   api<{
@@ -20,13 +21,24 @@ const { data, status } = await useAsyncData('store-products', () =>
 
 const products = computed(() => data.value?.data?.data || [])
 
-function add(p: { id: number, name: string, sale_price: number, primary_image?: string | null }) {
-  cart.add({
+function add(p: {
+  id: number
+  name: string
+  sale_price: number
+  available_qty: number
+  primary_image?: string | null
+}) {
+  tryAddToCart({
     item_id: p.id,
     name: p.name,
     sale_price: Number(p.sale_price),
-    primary_image: p.primary_image
+    primary_image: p.primary_image,
+    available_qty: p.available_qty
   })
+}
+
+function isOutOfStock(p: { available_qty: number }) {
+  return Number(p.available_qty) <= 0
 }
 </script>
 
@@ -48,6 +60,7 @@ function add(p: { id: number, name: string, sale_price: number, primary_image?: 
         to="/store/cart"
         size="lg"
         trailing-icon="i-lucide-arrow-right"
+        class="cursor-pointer"
       >
         Cart ({{ cart.count }})
       </UButton>
@@ -68,7 +81,7 @@ function add(p: { id: number, name: string, sale_price: number, primary_image?: 
       >
         <NuxtLink
           :to="`/products/${p.id}`"
-          class="aspect-[4/3] bg-gradient-to-br from-gold-300 to-gold-600"
+          class="aspect-[4/3] cursor-pointer bg-gradient-to-br from-gold-300 to-gold-600"
         >
           <img
             v-if="p.primary_image"
@@ -82,15 +95,18 @@ function add(p: { id: number, name: string, sale_price: number, primary_image?: 
         </h2>
         <p class="mt-1 text-sm text-ink-muted">
           ₹{{ Number(p.sale_price).toFixed(0) }}
-          <span v-if="p.available_qty != null"> · {{ p.available_qty }} in stock</span>
+          <span v-if="isOutOfStock(p)" class="text-red-700"> · Out of stock</span>
+          <span v-else-if="p.available_qty != null"> · {{ p.available_qty }} in stock</span>
         </p>
         <UButton
-          class="mt-3 self-start"
+          class="mt-3 self-start cursor-pointer disabled:cursor-not-allowed"
           size="md"
-          :disabled="p.available_qty === 0"
+          :disabled="isOutOfStock(p)"
+          :color="isOutOfStock(p) ? 'neutral' : undefined"
+          :variant="isOutOfStock(p) ? 'soft' : undefined"
           @click="add(p)"
         >
-          Add to cart
+          {{ isOutOfStock(p) ? 'Out of stock' : 'Add to cart' }}
         </UButton>
       </li>
     </ul>

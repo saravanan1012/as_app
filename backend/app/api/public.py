@@ -12,7 +12,7 @@ from app.core.vendor_context import VendorContext
 from app.db import get_db
 from app.models import Item, ItemImage, Vendor
 from app.services import email as email_svc
-from app.services.checkout import store_enabled
+from app.services.checkout import available_qty, store_enabled
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -84,10 +84,17 @@ def public_products(
         q = q.where(or_(Item.name.ilike(like), Item.code.ilike(like)))
     total = db.scalar(select(func.count()).select_from(q.subquery())) or 0
     rows = db.scalars(q.order_by(Item.id.desc()).offset((page - 1) * page_size).limit(page_size)).all()
+    data = []
+    for i in rows:
+        d = row(i, PRODUCT_FIELDS + ["is_online_sale"])
+        d["available_qty"] = available_qty(
+            db, vendor_id=vendor.id, item_id=i.id, location_id=vendor.default_location_id
+        )
+        data.append(d)
     return success(
         "Products",
         {
-            "data": [row(i, PRODUCT_FIELDS + ["is_online_sale"]) for i in rows],
+            "data": data,
             "pagination": {
                 "page": page,
                 "pageSize": page_size,
@@ -116,6 +123,9 @@ def public_product(
     from app.services.item_media import serialize_media
 
     d["images"] = [serialize_media(img) for img in images]
+    d["available_qty"] = available_qty(
+        db, vendor_id=vendor.id, item_id=it.id, location_id=vendor.default_location_id
+    )
     d["store_enabled"] = store_enabled(vendor)
     return success("Product", d)
 

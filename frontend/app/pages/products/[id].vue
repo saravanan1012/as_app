@@ -2,8 +2,8 @@
 const route = useRoute()
 const vendor = useVendorStore()
 const auth = useAuthStore()
-const cart = useCartStore()
 const { api } = useApi()
+const { tryAddToCart } = useCartFeedback()
 const id = computed(() => Number(route.params.id))
 
 const reviewsEnabled = computed(
@@ -17,6 +17,7 @@ const { data, error } = await useAsyncData(() => `product-${id.value}`, () =>
     description?: string
     sale_price: number
     is_online_sale?: boolean
+    available_qty?: number
     primary_image?: string | null
     store_enabled: boolean
     images?: Array<{ path: string }>
@@ -24,6 +25,11 @@ const { data, error } = await useAsyncData(() => `product-${id.value}`, () =>
 )
 
 const product = computed(() => data.value?.data)
+const outOfStock = computed(() => {
+  const qty = product.value?.available_qty
+  if (qty == null) return false
+  return Number(qty) <= 0
+})
 
 type ReviewRow = {
   id: number
@@ -87,13 +93,13 @@ async function submitReview() {
 
 function addToCart() {
   if (!product.value) return
-  cart.add({
+  tryAddToCart({
     item_id: product.value.id,
     name: product.value.name,
     sale_price: Number(product.value.sale_price),
-    primary_image: product.value.primary_image
+    primary_image: product.value.primary_image,
+    available_qty: product.value.available_qty
   })
-  navigateTo('/store/cart')
 }
 
 function stars(n: number | null) {
@@ -156,19 +162,30 @@ function stars(n: number | null) {
           {{ product.description || 'Details coming soon.' }}
         </p>
 
+        <p
+          v-if="vendor.storeEnabled && product.is_online_sale && outOfStock"
+          class="mt-4 text-sm text-red-700"
+        >
+          Out of stock
+        </p>
         <div class="mt-10 flex flex-wrap gap-3">
           <UButton
             v-if="vendor.storeEnabled && product.is_online_sale"
             size="xl"
+            class="cursor-pointer disabled:cursor-not-allowed"
+            :disabled="outOfStock"
+            :color="outOfStock ? 'neutral' : undefined"
+            :variant="outOfStock ? 'soft' : undefined"
             @click="addToCart"
           >
-            Add to Store cart
+            {{ outOfStock ? 'Out of stock' : 'Add to Store cart' }}
           </UButton>
           <UButton
             v-else-if="vendor.storeEnabled"
             to="/store"
             size="xl"
             variant="outline"
+            class="cursor-pointer"
           >
             Visit Store
           </UButton>
@@ -178,6 +195,7 @@ function stars(n: number | null) {
             size="xl"
             variant="outline"
             color="neutral"
+            class="cursor-pointer"
           >
             Enquire
           </UButton>

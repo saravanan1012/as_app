@@ -226,6 +226,7 @@ def preview_store_cart(
         if cust:
             party_type = cust.party_type or "CUSTOMER"
             customer_id = cust.id
+    offer_error: str | None = None
     if offer_code:
         try:
             offer = validate_offer(
@@ -239,8 +240,11 @@ def preview_store_cart(
                 item_ids=[int(x["item_id"]) for x in lines],
             )
         except OfferError as e:
-            raise CheckoutError(str(e)) from e
-        lines = allocate_order_discount_to_lines(lines, offer["discount_amount"])
+            # Keep pricing preview usable; surface why the code was rejected.
+            offer_error = str(e)
+            offer = None
+        if offer:
+            lines = allocate_order_discount_to_lines(lines, offer["discount_amount"])
 
     discount = float(offer["discount_amount"]) if offer else 0.0
     total_qty = sum(int(x.get("quantity") or 0) for x in lines)
@@ -313,6 +317,7 @@ def preview_store_cart(
         "total_qty": total_qty,
         "free_shipping_applied": free_applied,
         "offer_code": offer.get("code") if offer else None,
+        "offer_error": offer_error,
         "gst_enabled": gst_enabled,
         "vendor_state": vendor_state,
         "place_state": place,

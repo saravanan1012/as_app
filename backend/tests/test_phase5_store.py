@@ -146,6 +146,58 @@ def test_cod_checkout_and_offer(client):
 
 
 @pytest.mark.usefixtures("db_ready")
+def test_cart_preview_soft_fails_invalid_offer(client):
+    """Invalid offer must not blank totals — return offer_error + priced cart."""
+    _enable_store(client, enabled=True)
+    suf = _uid()
+    item = client.post(
+        "/api/items",
+        json={
+            "sku": f"PV{suf}",
+            "name": f"Preview Soft Offer {suf}",
+            "sale_price": 200,
+            "status": "ACTIVE",
+            "is_sellable": True,
+            "is_online_sale": True,
+        },
+    )
+    assert item.status_code == 201, item.text
+    item_id = item.json()["data"]["id"]
+    loc_id = client.get("/api/locations").json()["data"][0]["id"]
+    client.post(
+        "/api/stock",
+        json={"item_id": item_id, "location_id": loc_id, "quantity_on_hand": 10},
+    )
+    offer = client.post(
+        "/api/offers",
+        json={
+            "code": f"MIN{suf}",
+            "discount_amount": 10,
+            "min_order_value": 500,
+            "sales_channel": "ECOMMERCE",
+            "is_active": True,
+        },
+    )
+    assert offer.status_code == 201, offer.text
+
+    preview = client.post(
+        "/api/store/cart/preview",
+        headers=_headers(),
+        json={
+            "items": [{"item_id": item_id, "quantity": 1}],
+            "offer_code": f"MIN{suf}",
+            "address": {"street": "1 Main", "city": "Chennai", "state": "TN", "zip": "600001"},
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    data = preview.json()["data"]
+    assert data["subtotal"] == 200
+    assert data["discount"] == 0
+    assert data["offer_code"] is None
+    assert "Minimum order value" in (data.get("offer_error") or "")
+
+
+@pytest.mark.usefixtures("db_ready")
 def test_razorpay_mock_reserve_and_verify(client):
     _enable_store(client, enabled=True)
     _login(client)
