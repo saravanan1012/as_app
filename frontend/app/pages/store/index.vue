@@ -81,7 +81,7 @@ function isOutOfStock(p: { available_qty: number }) {
       >
         <NuxtLink
           :to="`/products/${p.id}`"
-          class="aspect-[4/3] cursor-pointer bg-gradient-to-br from-gold-300 to-gold-600"
+          class="block w-full aspect-[4/3] overflow-hidden cursor-pointer bg-gradient-to-br from-gold-300 to-gold-600"
         >
           <img
             v-if="p.primary_image"
