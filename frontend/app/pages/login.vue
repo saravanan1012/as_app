@@ -104,14 +104,19 @@ async function submit() {
       </UButton>
     </form>
 
-    <p class="mt-6 text-sm text-ink-muted">
-      New to the Store?
-      <NuxtLink
+    <div class="mt-8 space-y-3 border-t border-gold-300/60 pt-6">
+      <p class="text-sm font-medium text-ink">
+        New to the Store?
+      </p>
+      <UButton
         to="/store/register"
-        class="text-gold-800 underline-offset-2 hover:underline"
+        size="xl"
+        block
+        color="neutral"
+        variant="outline"
       >
         Create a customer account
-      </NuxtLink>
-    </p>
+      </UButton>
+    </div>
   </div>
 </template>

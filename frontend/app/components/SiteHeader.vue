@@ -179,14 +179,24 @@ async function submitPassword() {
             </UButton>
           </UTooltip>
         </UDropdownMenu>
-        <UButton
-          v-else
-          to="/login"
-          size="sm"
-          color="primary"
-        >
-          Login
-        </UButton>
+        <template v-else>
+          <UButton
+            v-if="vendor.storeEnabled"
+            to="/store/register"
+            size="sm"
+            color="neutral"
+            variant="ghost"
+          >
+            Register
+          </UButton>
+          <UButton
+            to="/login"
+            size="sm"
+            color="primary"
+          >
+            Login
+          </UButton>
+        </template>
       </div>
     </div>
 

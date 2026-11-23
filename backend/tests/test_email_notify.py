@@ -98,3 +98,31 @@ def test_notify_new_order_builds_and_sends(monkeypatch):
     assert "Neem Oil" in kwargs["text_body"]
     assert "Priya" in kwargs["text_body"]
     get_settings.cache_clear()
+
+
+def test_notify_contact_enquiry_builds_and_sends(monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("SMTP_USER", "user@example.com")
+    monkeypatch.setenv("ORDER_NOTIFY_TO", "ops@example.com")
+    get_settings.cache_clear()
+
+    with patch("app.services.email.send_email", return_value=True) as send:
+        ok = email_svc.notify_contact_enquiry(
+            name="Karthik",
+            email="karthik@example.com",
+            phone="9000000001",
+            subject="Wholesale",
+            message="Need dealer pricing",
+            vendor_name="AS Demo",
+        )
+
+    assert ok is True
+    send.assert_called_once()
+    kwargs = send.call_args.kwargs
+    assert kwargs["to"] == ["ops@example.com"]
+    assert kwargs["reply_to"] == "karthik@example.com"
+    assert "Wholesale" in kwargs["subject"]
+    assert "Karthik" in kwargs["text_body"]
+    assert "Need dealer pricing" in kwargs["text_body"]
+    get_settings.cache_clear()

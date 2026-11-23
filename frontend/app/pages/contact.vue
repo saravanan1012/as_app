@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const vendor = useVendorStore()
+const { api } = useApi()
 
 const PHONE = '7010970849'
 const PHONE_E164 = `91${PHONE}`
@@ -28,6 +29,7 @@ const form = reactive({
 })
 const sentHint = ref('')
 const error = ref('')
+const loading = ref(false)
 
 function buildMessageBody() {
   return [
@@ -40,29 +42,50 @@ function buildMessageBody() {
   ].join('\n')
 }
 
-function submitWhatsApp() {
+function validateForm() {
   error.value = ''
   sentHint.value = ''
   if (!form.name.trim() || !form.message.trim()) {
     error.value = 'Please enter your name and message.'
-    return
+    return false
   }
+  return true
+}
+
+async function submitEmail() {
+  if (!validateForm()) return
+  loading.value = true
+  try {
+    await api('/public/contact', {
+      method: 'POST',
+      body: {
+        name: form.name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        subject: form.subject.trim() || null,
+        message: form.message.trim()
+      }
+    })
+    sentHint.value = 'Message sent — we will get back to you soon.'
+    form.name = ''
+    form.email = ''
+    form.phone = ''
+    form.subject = ''
+    form.message = ''
+  } catch (e: unknown) {
+    error.value
+      = (e as { data?: { message?: string } })?.data?.message
+        || 'Could not send your message. Try WhatsApp or call us.'
+  } finally {
+    loading.value = false
+  }
+}
+
+function submitWhatsApp() {
+  if (!validateForm()) return
   const text = encodeURIComponent(buildMessageBody())
   window.open(`${WHATSAPP_URL}?text=${text}`, '_blank', 'noopener,noreferrer')
   sentHint.value = 'WhatsApp opened with your message — send it to complete.'
-}
-
-function submitMailto() {
-  error.value = ''
-  sentHint.value = ''
-  if (!form.name.trim() || !form.message.trim()) {
-    error.value = 'Please enter your name and message.'
-    return
-  }
-  const subject = encodeURIComponent(form.subject.trim() || `Enquiry — ${vendor.brandName}`)
-  const body = encodeURIComponent(buildMessageBody())
-  window.location.href = `mailto:?subject=${subject}&body=${body}`
-  sentHint.value = 'Your email app should open with the message ready to send.'
 }
 
 useSeoMeta({
@@ -138,7 +161,7 @@ useSeoMeta({
           <p class="mt-2 text-sm text-ink-muted">
             Scan with your phone camera for WhatsApp or AS Signature.
           </p>
-          <div class="mt-4 grid grid-cols-2 gap-4 max-w-md">
+          <div class="mt-4 grid max-w-md grid-cols-2 gap-4">
             <a
               :href="WHATSAPP_URL"
               target="_blank"
@@ -193,14 +216,17 @@ useSeoMeta({
           Enquiry form
         </h2>
         <p class="mt-2 text-sm text-ink-muted">
-          Fill in your details, then send via WhatsApp or your email app.
+          Fill in your details and send — we receive it by email. WhatsApp is available as a backup.
         </p>
 
         <form
           class="mt-6 space-y-4"
-          @submit.prevent="submitWhatsApp"
+          @submit.prevent="submitEmail"
         >
-          <UFormField label="Name" required>
+          <UFormField
+            label="Name"
+            required
+          >
             <UInput
               v-model="form.name"
               size="lg"
@@ -234,7 +260,10 @@ useSeoMeta({
               placeholder="Orders, wholesale, product question…"
             />
           </UFormField>
-          <UFormField label="Message" required>
+          <UFormField
+            label="Message"
+            required
+          >
             <UTextarea
               v-model="form.message"
               :rows="5"
@@ -260,17 +289,19 @@ useSeoMeta({
             <UButton
               type="submit"
               size="xl"
+              :loading="loading"
             >
-              Send on WhatsApp
+              Send message
             </UButton>
             <UButton
               type="button"
               size="xl"
               variant="outline"
               color="neutral"
-              @click="submitMailto"
+              :disabled="loading"
+              @click="submitWhatsApp"
             >
-              Open in Email
+              Send on WhatsApp
             </UButton>
           </div>
         </form>

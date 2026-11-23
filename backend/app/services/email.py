@@ -35,7 +35,14 @@ def _from_header() -> str:
     return raw
 
 
-def send_email(*, to: list[str], subject: str, text_body: str, html_body: str | None = None) -> bool:
+def send_email(
+    *,
+    to: list[str],
+    subject: str,
+    text_body: str,
+    html_body: str | None = None,
+    reply_to: str | None = None,
+) -> bool:
     """Send one email. Returns False if SMTP is not configured or send fails."""
     settings = get_settings()
     recipients = [e.strip() for e in to if e and e.strip()]
@@ -50,6 +57,8 @@ def send_email(*, to: list[str], subject: str, text_body: str, html_body: str | 
     msg["Subject"] = subject
     msg["From"] = _from_header()
     msg["To"] = ", ".join(recipients)
+    if reply_to and reply_to.strip():
+        msg["Reply-To"] = reply_to.strip()
     msg.attach(MIMEText(text_body, "plain", "utf-8"))
     if html_body:
         msg.attach(MIMEText(html_body, "html", "utf-8"))
@@ -65,6 +74,74 @@ def send_email(*, to: list[str], subject: str, text_body: str, html_body: str | 
         return True
     except Exception:
         logger.exception("Failed to send email to %s subject=%r", recipients, subject)
+        return False
+
+
+def _escape(value: str) -> str:
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def notify_contact_enquiry(
+    *,
+    name: str,
+    email: str | None,
+    phone: str | None,
+    subject: str | None,
+    message: str,
+    vendor_name: str | None = None,
+) -> bool:
+    """Email site contact form submissions to ORDER_NOTIFY_TO (or SMTP_USER)."""
+    settings = get_settings()
+    recipients = settings.order_notify_recipients
+    if not smtp_configured():
+        logger.info("Contact notify skipped (SMTP/recipients not set)")
+        return False
+
+    name = (name or "").strip()
+    email = (email or "").strip() or None
+    phone = (phone or "").strip() or None
+    subject_line = (subject or "").strip() or "Enquiry"
+    message = (message or "").strip()
+    brand = (vendor_name or "AS").strip() or "AS"
+
+    mail_subject = f"[{brand}] Contact: {subject_line}"
+    text_body = f"""New contact form enquiry.
+
+Name:     {name}
+Email:    {email or '—'}
+Phone:    {phone or '—'}
+Subject:  {subject_line}
+
+Message:
+{message}
+"""
+    html_body = f"""<html><body>
+<p><strong>New contact form enquiry</strong></p>
+<table cellpadding="4">
+<tr><td>Name</td><td>{_escape(name)}</td></tr>
+<tr><td>Email</td><td>{_escape(email or '—')}</td></tr>
+<tr><td>Phone</td><td>{_escape(phone or '—')}</td></tr>
+<tr><td>Subject</td><td>{_escape(subject_line)}</td></tr>
+</table>
+<p><strong>Message</strong></p>
+<pre style="font-family:inherit;white-space:pre-wrap">{_escape(message)}</pre>
+</body></html>"""
+
+    try:
+        return send_email(
+            to=recipients,
+            subject=mail_subject,
+            text_body=text_body,
+            html_body=html_body,
+            reply_to=email,
+        )
+    except Exception:
+        logger.exception("notify_contact_enquiry failed")
         return False
 
 

@@ -1,6 +1,7 @@
 """Public vendor/product info — available even when Store is disabled."""
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,7 @@ from app.core.responses import error, success
 from app.core.vendor_context import VendorContext
 from app.db import get_db
 from app.models import Item, ItemImage, Vendor
+from app.services import email as email_svc
 from app.services.checkout import store_enabled
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -116,3 +118,39 @@ def public_product(
     d["images"] = [serialize_media(img) for img in images]
     d["store_enabled"] = store_enabled(vendor)
     return success("Product", d)
+
+
+class ContactIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=30)
+    subject: str | None = Field(default=None, max_length=200)
+    message: str = Field(min_length=1, max_length=5000)
+
+
+@router.post("/contact")
+def public_contact(
+    body: ContactIn,
+    vctx: VendorContext = Depends(get_vendor_ctx),
+):
+    """Send a contact-form enquiry to ORDER_NOTIFY_TO via SMTP."""
+    vendor = _require_vendor(vctx)
+    if not email_svc.smtp_configured():
+        return error(
+            "Email is not configured. Please use WhatsApp or call us.",
+            status_code=503,
+        )
+    settings = vendor.settings if isinstance(vendor.settings, dict) else {}
+    branding = settings.get("branding") or {}
+    vendor_label = branding.get("store_name") or vendor.name
+    ok = email_svc.notify_contact_enquiry(
+        name=body.name,
+        email=str(body.email).lower() if body.email else None,
+        phone=body.phone,
+        subject=body.subject,
+        message=body.message,
+        vendor_name=vendor_label,
+    )
+    if not ok:
+        return error("Could not send your message. Please try WhatsApp or call us.", status_code=502)
+    return success("Message sent", {"sent": True})

@@ -6,11 +6,22 @@ const name = ref('')
 const email = ref('')
 const phone = ref('')
 const password = ref('')
+const confirmPassword = ref('')
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
 const error = ref('')
 const loading = ref(false)
 
 async function submit() {
   error.value = ''
+  if (password.value.length < 6) {
+    error.value = 'Password must be at least 6 characters.'
+    return
+  }
+  if (password.value !== confirmPassword.value) {
+    error.value = 'Password and confirmation do not match.'
+    return
+  }
   loading.value = true
   try {
     await auth.registerStore(
@@ -72,13 +83,50 @@ async function submit() {
       <UFormField label="Password">
         <UInput
           v-model="password"
-          type="password"
+          :type="showPassword ? 'text' : 'password'"
           required
           minlength="6"
           size="lg"
           class="w-full"
           autocomplete="new-password"
-        />
+          :ui="{ trailing: 'pe-1' }"
+        >
+          <template #trailing>
+            <UButton
+              color="neutral"
+              variant="link"
+              size="sm"
+              :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              :aria-pressed="showPassword"
+              @click="showPassword = !showPassword"
+            />
+          </template>
+        </UInput>
+      </UFormField>
+      <UFormField label="Confirm password">
+        <UInput
+          v-model="confirmPassword"
+          :type="showConfirmPassword ? 'text' : 'password'"
+          required
+          minlength="6"
+          size="lg"
+          class="w-full"
+          autocomplete="new-password"
+          :ui="{ trailing: 'pe-1' }"
+        >
+          <template #trailing>
+            <UButton
+              color="neutral"
+              variant="link"
+              size="sm"
+              :icon="showConfirmPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+              :aria-label="showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'"
+              :aria-pressed="showConfirmPassword"
+              @click="showConfirmPassword = !showConfirmPassword"
+            />
+          </template>
+        </UInput>
       </UFormField>
       <p
         v-if="error"
@@ -95,5 +143,15 @@ async function submit() {
         Register
       </UButton>
     </form>
+
+    <p class="mt-6 text-center text-sm text-ink">
+      Already have an account?
+      <NuxtLink
+        to="/login"
+        class="font-medium text-gold-800 underline-offset-2 hover:underline"
+      >
+        Sign in
+      </NuxtLink>
+    </p>
   </div>
 </template>
