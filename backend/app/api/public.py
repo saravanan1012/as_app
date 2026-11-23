@@ -17,7 +17,7 @@ from app.services.checkout import available_qty, store_enabled
 router = APIRouter(prefix="/public", tags=["public"])
 
 PRODUCT_FIELDS = [
-    "id", "code", "name", "description", "unit_of_measure", "sale_price",
+    "id", "code", "name", "description", "unit_of_measure", "sale_price", "mrp",
     "category", "primary_image", "sale_price_includes_gst",
 ]
 

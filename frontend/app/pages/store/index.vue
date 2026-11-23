@@ -12,6 +12,7 @@ const { data, status } = await useAsyncData('store-products', () =>
       id: number
       name: string
       sale_price: number
+      mrp?: number
       available_qty: number
       primary_image?: string | null
       description?: string
@@ -94,9 +95,11 @@ function isOutOfStock(p: { available_qty: number }) {
           {{ p.name }}
         </h2>
         <p class="mt-1 text-sm text-ink-muted">
-          ₹{{ Number(p.sale_price).toFixed(0) }}
+          <StorePrice
+            :sale-price="p.sale_price"
+            :mrp="p.mrp"
+          />
           <span v-if="isOutOfStock(p)" class="text-red-700"> · Out of stock</span>
-          <span v-else-if="p.available_qty != null"> · {{ p.available_qty }} in stock</span>
         </p>
         <UButton
           class="mt-3 self-start cursor-pointer disabled:cursor-not-allowed"

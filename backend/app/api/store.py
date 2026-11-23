@@ -31,7 +31,7 @@ from app.services.razorpay_client import mock_signature
 router = APIRouter(prefix="/store", tags=["store"])
 
 PRODUCT_FIELDS = [
-    "id", "code", "name", "description", "unit_of_measure", "sale_price",
+    "id", "code", "name", "description", "unit_of_measure", "sale_price", "mrp",
     "category", "primary_image", "sale_price_includes_gst", "tax_category_id",
 ]
 

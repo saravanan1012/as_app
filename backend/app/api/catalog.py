@@ -15,9 +15,17 @@ router = APIRouter(tags=["catalog"])
 
 ITEM_FIELDS = [
     "id", "vendor_id", "code", "name", "description", "unit_of_measure", "cost_price",
-    "sale_price", "category", "type", "status", "is_sellable", "is_online_sale",
+    "sale_price", "mrp", "category", "type", "status", "is_sellable", "is_online_sale",
     "sale_price_includes_gst", "tax_category_id", "primary_image", "created_at", "updated_at",
 ]
+
+
+def _normalize_item_prices(*, sale_price: float, mrp: float | None) -> float:
+    """MRP defaults to sale; never store MRP below sale (no inverted strike)."""
+    sale = float(sale_price or 0)
+    if mrp is None or float(mrp) <= 0:
+        return sale
+    return max(float(mrp), sale)
 
 
 class ItemIn(BaseModel):
@@ -27,6 +35,7 @@ class ItemIn(BaseModel):
     unit_of_measure: str = "PCS"
     cost_price: float = 0
     sale_price: float = 0
+    mrp: float | None = None
     category: str = "GENERAL"
     type: str = "PRODUCT"
     status: str = "ACTIVE"
@@ -44,6 +53,7 @@ class ItemPatch(BaseModel):
     unit_of_measure: str | None = None
     cost_price: float | None = None
     sale_price: float | None = None
+    mrp: float | None = None
     category: str | None = None
     type: str | None = None
     status: str | None = None
@@ -112,7 +122,9 @@ def create_item(
     db: Session = Depends(get_db),
 ):
     user, vendor_id = ctx
-    item = Item(vendor_id=vendor_id, **body.model_dump())
+    data = body.model_dump()
+    data["mrp"] = _normalize_item_prices(sale_price=data["sale_price"], mrp=data.get("mrp"))
+    item = Item(vendor_id=vendor_id, **data)
     item.status = item.status.upper()
     db.add(item)
     db.flush()
@@ -143,7 +155,20 @@ def patch_item(
     if not item or item.vendor_id != vendor_id:
         return error("Not found", status_code=404)
     old = row(item, ITEM_FIELDS)
-    for k, v in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    old_sale = float(item.sale_price or 0)
+    old_mrp = float(item.mrp or 0)
+    if "sale_price" in updates and "mrp" not in updates:
+        # Keep MRP in sync when it was locked to the previous sale price
+        if old_mrp <= 0 or abs(old_mrp - old_sale) < 0.005:
+            updates["mrp"] = updates["sale_price"]
+    sale_after = float(updates["sale_price"]) if "sale_price" in updates else old_sale
+    if "mrp" in updates or "sale_price" in updates:
+        updates["mrp"] = _normalize_item_prices(
+            sale_price=sale_after,
+            mrp=updates["mrp"] if "mrp" in updates else (old_mrp if old_mrp > 0 else sale_after),
+        )
+    for k, v in updates.items():
         if k == "status" and v:
             v = v.upper()
         setattr(item, k, v)

@@ -1,11 +1,14 @@
 <script setup lang="ts">
 const vendor = useVendorStore()
-const lastUpdated = '31 October 2026'
+const lastUpdated = '23 November 2026'
+const WHATSAPP_DISPLAY = '+91 70109 70849'
+const WHATSAPP_URL = 'https://wa.me/917010970849'
+const SUPPORT_EMAIL = 'premaagency18@gmail.com'
 
 useSeoMeta({
-  title: () => `Terms of Service · ${vendor.brandName}`,
+  title: () => `Terms & Conditions · ${vendor.brandName}`,
   description: () =>
-    `Terms for using ${vendor.brandName} website and Online Store for sanitary napkins and related products.`
+    `Terms & Conditions for visiting ${vendor.brandName} and purchasing our products online.`
 })
 </script>
 
@@ -14,7 +17,7 @@ useSeoMeta({
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="font-display text-4xl text-ink">
-          Terms of Service
+          Terms &amp; Conditions
         </h1>
         <p class="mt-2 text-sm text-ink-muted">
           Last updated: {{ lastUpdated }}
@@ -42,107 +45,158 @@ useSeoMeta({
 
     <div class="mt-10 space-y-8 text-sm leading-relaxed text-ink-muted">
       <section>
-        <h2 class="font-display text-xl text-ink">
-          1. Acceptance
-        </h2>
-        <p class="mt-2">
-          By accessing {{ vendor.brandName }} (the “Service”), including our product pages and Online Store, you agree to these Terms.
-          If you do not agree, do not use the Service.
+        <p>
+          Welcome to {{ vendor.brandName }}! By visiting our website or purchasing our products, you agree to the following Terms &amp; Conditions.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          2. What we offer
+          1. Product Information
         </h2>
         <p class="mt-2">
-          We sell personal care products—primarily organic sanitary napkins in sizes such as M, L, XL, XXL, and XXXL—and may list related essentials.
-          Product details, images, and prices on the site are for information; minor pack or artwork differences may occur.
-          The Online Store (cart, checkout, orders) is available when enabled for this storefront.
+          We strive to provide accurate product descriptions, images, sizes, and prices.
+          Minor variations in product appearance or packaging may occur.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          3. Accounts
+          2. Orders &amp; Payments
         </h2>
         <p class="mt-2">
-          You must provide accurate registration and shipping details. You are responsible for keeping login credentials confidential
-          and for activity under your account. We may suspend accounts that abuse the Service or violate these Terms.
+          All orders are subject to product availability and confirmation.
+          Customers must provide accurate contact, billing, and delivery information.
+          Payments must be completed through the available payment methods.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          4. Orders, pricing &amp; payment
-        </h2>
-        <ul class="mt-2 list-disc space-y-1 pl-5">
-          <li>Prices are shown in INR and may include applicable taxes as indicated at checkout</li>
-          <li>Payment options may include Cash on Delivery (COD) and prepaid checkout via Razorpay (UPI, cards, and other methods Razorpay supports)</li>
-          <li>Placing an order is an offer to buy; we may cancel or refuse orders for stock, pricing error, fraud risk, or delivery constraints</li>
-          <li>Stock is reserved or deducted according to the payment method; prepaid orders are confirmed after successful payment verification</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2 class="font-display text-xl text-ink">
-          5. Shipping &amp; delivery
+          3. Pricing &amp; Offers
         </h2>
         <p class="mt-2">
-          Shipping charges (if any) are calculated at checkout. Delivery timelines are estimates and depend on courier and destination.
-          Risk of loss passes according to our fulfilment process and applicable law once handed to the courier, unless we state otherwise.
+          Prices, discounts, and promotional offers are subject to change without prior notice.
+          The confirmed order price will apply to your purchase.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          6. Acceptable use
+          4. Shipping &amp; Delivery
         </h2>
         <p class="mt-2">
-          You may not misuse the store (fraudulent payments, scraping, interfering with systems, or reselling in violation of applicable law).
-          Product reviews must be honest and not abusive.
+          We aim to deliver orders within the estimated delivery period.
+          Delivery times may vary depending on location, courier services, and unforeseen circumstances.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          7. Returns &amp; refunds
+          5. Order Cancellation
         </h2>
         <p class="mt-2">
-          Hygiene products have special handling rules. Refunds and returns are governed by our
+          Orders can be cancelled before dispatch.
+          Once an order has been shipped, cancellation may not be possible.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="font-display text-xl text-ink">
+          6. Returns &amp; Refunds
+        </h2>
+        <p class="mt-2">
+          Due to hygiene and safety reasons, opened or used sanitary napkin packages cannot be returned or exchanged.
+          Damaged, defective, incorrect, or missing products will be handled according to our
           <NuxtLink
             to="/refund"
             class="text-gold-800 underline"
-          >Refund &amp; Cancellation Policy</NuxtLink>.
+          >Refund &amp; Return Policy</NuxtLink>
+          and applicable consumer laws.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          8. Limitation of liability
+          7. Product Usage
         </h2>
         <p class="mt-2">
-          To the fullest extent permitted by law, {{ vendor.brandName }} is not liable for indirect or consequential losses arising from use of the Service
-          or delayed delivery. Nothing in these Terms limits rights that cannot be excluded under applicable consumer law.
+          Please follow the product instructions and recommended usage guidelines.
+          Discontinue use if irritation or discomfort occurs.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          9. Changes &amp; contact
+          8. Privacy Policy
         </h2>
         <p class="mt-2">
-          We may update these Terms; the “Last updated” date will change when we do. Continued use after changes means you accept the updated Terms.
-          Questions:
-          <NuxtLink
-            to="/contact"
-            class="text-gold-800 underline"
-          >Contact us</NuxtLink>
-          ·
+          We respect your privacy. Your personal information will be used for order processing, delivery, and customer support in accordance with our
           <NuxtLink
             to="/privacy"
             class="text-gold-800 underline"
           >Privacy Policy</NuxtLink>.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="font-display text-xl text-ink">
+          9. Limitation of Liability
+        </h2>
+        <p class="mt-2">
+          We are not responsible for delays or interruptions caused by circumstances beyond our reasonable control.
+          Nothing in these terms limits your statutory consumer rights.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="font-display text-xl text-ink">
+          10. Changes to Terms
+        </h2>
+        <p class="mt-2">
+          {{ vendor.brandName }} reserves the right to update these Terms &amp; Conditions when necessary.
+          Changes will be published on our website. The “Last updated” date above will change when we do.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="font-display text-xl text-ink">
+          11. Contact Information
+        </h2>
+        <ul class="mt-2 list-none space-y-1">
+          <li>
+            Brand: <strong class="text-ink">{{ vendor.brandName }}</strong>
+          </li>
+          <li>
+            WhatsApp:
+            <a
+              :href="WHATSAPP_URL"
+              class="text-gold-800 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >{{ WHATSAPP_DISPLAY }}</a>
+          </li>
+          <li>
+            Email:
+            <a
+              :href="`mailto:${SUPPORT_EMAIL}`"
+              class="text-gold-800 underline"
+            >{{ SUPPORT_EMAIL }}</a>
+          </li>
+          <li>
+            Or use our
+            <NuxtLink
+              to="/contact"
+              class="text-gold-800 underline"
+            >Contact</NuxtLink>
+            page.
+          </li>
+        </ul>
+        <p class="mt-4 text-ink">
+          Thank you for choosing {{ vendor.brandName }}!
+        </p>
+        <p class="mt-1 italic text-ink-muted">
+          Pure Care. Natural Comfort. Confident You.
         </p>
       </section>
     </div>

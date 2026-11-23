@@ -31,6 +31,7 @@ const mediaItems = computed(() => mediaRes.value?.data?.data || [])
 const form = reactive({
   name: '',
   sale_price: 0,
+  mrp: 0,
   cost_price: 0,
   is_online_sale: false,
   is_sellable: true,
@@ -39,6 +40,9 @@ const form = reactive({
   status: 'ACTIVE',
   description: ''
 })
+const mrpTouched = ref(false)
+let lastLoadedSale = 0
+let lastLoadedMrp = 0
 const error = ref('')
 const mediaError = ref('')
 const saving = ref(false)
@@ -158,6 +162,7 @@ watch(item, (i) => {
   if (!i) return
   form.name = i.name
   form.sale_price = Number(i.sale_price)
+  form.mrp = Number(i.mrp ?? i.sale_price)
   form.cost_price = Number(i.cost_price)
   form.is_online_sale = !!i.is_online_sale
   form.is_sellable = !!i.is_sellable
@@ -165,7 +170,24 @@ watch(item, (i) => {
   form.tax_category_id = i.tax_category_id ?? null
   form.status = i.status
   form.description = i.description || ''
+  lastLoadedSale = form.sale_price
+  lastLoadedMrp = form.mrp
+  mrpTouched.value = false
 }, { immediate: true })
+
+watch(
+  () => form.sale_price,
+  (sale) => {
+    const lockedToSale = !mrpTouched.value && (
+      Math.abs(form.mrp - lastLoadedSale) < 0.005
+      || Math.abs(lastLoadedMrp - lastLoadedSale) < 0.005
+      || form.mrp <= 0
+    )
+    if (lockedToSale) {
+      form.mrp = Number(sale) || 0
+    }
+  }
+)
 
 watch(rulesRes, (r) => {
   const rows = r?.data?.data || []
@@ -247,18 +269,32 @@ async function savePrices() {
             v-model.number="form.sale_price"
             type="number"
             step="0.01"
+            min="0"
             class="w-full"
           />
         </UFormField>
-        <UFormField label="Cost">
+        <UFormField
+          label="MRP"
+          hint="Strike-through on store when higher than sale"
+        >
           <UInput
-            v-model.number="form.cost_price"
+            v-model.number="form.mrp"
             type="number"
             step="0.01"
+            min="0"
             class="w-full"
+            @input="mrpTouched = true"
           />
         </UFormField>
       </div>
+      <UFormField label="Cost">
+        <UInput
+          v-model.number="form.cost_price"
+          type="number"
+          step="0.01"
+          class="w-full"
+        />
+      </UFormField>
       <UFormField label="Status">
         <USelect
           v-model="form.status"
@@ -535,9 +571,15 @@ async function savePrices() {
     >
       <div>
         <dt class="text-ink-muted">
-          Sale
+          Sale / MRP
         </dt>
-        <dd>₹{{ Number(item.sale_price).toFixed(2) }}</dd>
+        <dd>
+          ₹{{ Number(item.sale_price).toFixed(2) }}
+          <span
+            v-if="Number(item.mrp || 0) > Number(item.sale_price)"
+            class="ml-1 text-ink-muted line-through"
+          >₹{{ Number(item.mrp).toFixed(2) }}</span>
+        </dd>
       </div>
       <div>
         <dt class="text-ink-muted">

@@ -7,6 +7,7 @@ const form = reactive({
   name: '',
   description: '',
   sale_price: 0,
+  mrp: 0,
   cost_price: 0,
   unit_of_measure: 'PCS',
   category: 'GENERAL',
@@ -18,6 +19,17 @@ const form = reactive({
 })
 const error = ref('')
 const loading = ref(false)
+const mrpTouched = ref(false)
+
+watch(
+  () => form.sale_price,
+  (sale) => {
+    if (!mrpTouched.value || Number(form.mrp) <= 0 || Number(form.mrp) === Number(sale)) {
+      form.mrp = Number(sale) || 0
+      mrpTouched.value = false
+    }
+  }
+)
 
 const { data: taxCatsRes } = await useAdminAsyncData('new-item-tax-categories', () =>
   api<Array<Record<string, any>>>('/tax-categories')
@@ -82,18 +94,32 @@ async function submit() {
             v-model.number="form.sale_price"
             type="number"
             step="0.01"
+            min="0"
             class="w-full"
           />
         </UFormField>
-        <UFormField label="Cost price">
+        <UFormField
+          label="MRP"
+          hint="Shown struck through when higher than sale price"
+        >
           <UInput
-            v-model.number="form.cost_price"
+            v-model.number="form.mrp"
             type="number"
             step="0.01"
+            min="0"
             class="w-full"
+            @input="mrpTouched = true"
           />
         </UFormField>
       </div>
+      <UFormField label="Cost price">
+        <UInput
+          v-model.number="form.cost_price"
+          type="number"
+          step="0.01"
+          class="w-full"
+        />
+      </UFormField>
       <UFormField label="Unit">
         <UInput
           v-model="form.unit_of_measure"

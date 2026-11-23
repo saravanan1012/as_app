@@ -16,6 +16,7 @@ const { data, error } = await useAsyncData(() => `product-${id.value}`, () =>
     name: string
     description?: string
     sale_price: number
+    mrp?: number
     is_online_sale?: boolean
     available_qty?: number
     primary_image?: string | null
@@ -155,8 +156,12 @@ function stars(n: number | null) {
           <span class="text-sm font-medium text-ink">{{ avgRating.toFixed(1) }}</span>
           <span class="text-sm text-ink-muted">({{ reviews.length }} review{{ reviews.length === 1 ? '' : 's' }})</span>
         </p>
-        <p class="mt-4 text-2xl font-semibold text-gold-800">
-          ₹{{ Number(product.sale_price).toFixed(0) }}
+        <p class="mt-4">
+          <StorePrice
+            :sale-price="product.sale_price"
+            :mrp="product.mrp"
+            size="lg"
+          />
         </p>
         <p class="mt-6 max-w-prose leading-relaxed text-ink-muted whitespace-pre-line">
           {{ product.description || 'Details coming soon.' }}

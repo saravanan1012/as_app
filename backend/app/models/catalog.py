@@ -50,6 +50,8 @@ class Item(Base):
     unit_of_measure: Mapped[str] = mapped_column(String(20), nullable=False, default="PCS")
     cost_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     sale_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    # Display / compare-at price (MSRP). Charge always uses sale_price.
+    mrp: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     category: Mapped[str] = mapped_column(String(50), nullable=False, default="GENERAL")
     type: Mapped[str] = mapped_column(String(30), nullable=False, default="PRODUCT")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="ACTIVE")

@@ -10,6 +10,7 @@ const { data, refresh, status } = await useAsyncData('products', () =>
       name: string
       description?: string
       sale_price: number
+      mrp?: number
       is_online_sale?: boolean
       primary_image?: string | null
     }>
@@ -86,7 +87,10 @@ async function search() {
               {{ p.description || 'View details' }}
             </p>
             <p class="mt-2 text-sm font-semibold text-gold-800">
-              ₹{{ Number(p.sale_price).toFixed(0) }}
+              <StorePrice
+                :sale-price="p.sale_price"
+                :mrp="p.mrp"
+              />
             </p>
           </div>
         </NuxtLink>

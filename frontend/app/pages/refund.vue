@@ -1,11 +1,14 @@
 <script setup lang="ts">
 const vendor = useVendorStore()
-const lastUpdated = '31 October 2026'
+const lastUpdated = '23 November 2026'
+const WHATSAPP_DISPLAY = '+91 70109 70849'
+const WHATSAPP_URL = 'https://wa.me/917010970849'
+const SUPPORT_EMAIL = 'premaagency18@gmail.com'
 
 useSeoMeta({
-  title: () => `Refund Policy · ${vendor.brandName}`,
+  title: () => `Refund & Return Policy · ${vendor.brandName}`,
   description: () =>
-    `Refund and cancellation rules for ${vendor.brandName} Online Store orders paid by COD or Razorpay.`
+    `Refund and return rules for ${vendor.brandName} orders — hygiene products, damaged or incorrect items, and how to contact support.`
 })
 </script>
 
@@ -14,7 +17,7 @@ useSeoMeta({
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="font-display text-4xl text-ink">
-          Refund &amp; Cancellation Policy
+          Refund &amp; Return Policy
         </h1>
         <p class="mt-2 text-sm text-ink-muted">
           Last updated: {{ lastUpdated }}
@@ -42,98 +45,108 @@ useSeoMeta({
 
     <div class="mt-10 space-y-8 text-sm leading-relaxed text-ink-muted">
       <section>
-        <h2 class="font-display text-xl text-ink">
-          1. Scope
-        </h2>
-        <p class="mt-2">
-          This policy applies to Online Store orders for {{ vendor.brandName }} products (including sanitary napkins)
-          paid by Cash on Delivery (COD) or prepaid via Razorpay. It does not cover wholesale / B2B trade terms unless stated separately.
+        <p>
+          At {{ vendor.brandName }}, customer satisfaction is our priority.
+          We are committed to providing quality products and a pleasant shopping experience.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          2. Cancellation before dispatch
+          1. Returns &amp; Exchanges
         </h2>
         <p class="mt-2">
-          You may request cancellation before the order is packed or handed to the courier by contacting us with your order code
-          (see
-          <NuxtLink
-            to="/store/orders"
-            class="text-gold-800 underline"
-          >/store/orders</NuxtLink>
-          when signed in, or
-          <NuxtLink
-            to="/contact"
-            class="text-gold-800 underline"
-          >Contact</NuxtLink>).
-          Once shipped, cancellation is not usually possible; see returns below.
+          For hygiene and safety reasons, sanitary napkins
+          <strong class="text-ink">cannot be returned or exchanged</strong>
+          once the package has been opened or used.
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          3. Hygiene products
+          2. Damaged or Incorrect Products
         </h2>
         <p class="mt-2">
-          For health and safety, <strong class="text-ink">opened or used sanitary napkins and sealed personal-care packs that have been opened</strong>
-          are generally not returnable. We may accept a return or replacement when:
+          If you receive a damaged, defective, or incorrect product, please contact us within
+          <strong class="text-ink">48 hours</strong>
+          of delivery with your order details and clear photographs or an unboxing video.
         </p>
-        <ul class="mt-2 list-disc space-y-1 pl-5">
-          <li>You received a damaged, defective, or wrong item (size / SKU mismatch)</li>
-          <li>The sealed pack arrived visibly broken in transit</li>
-          <li>Applicable law requires a remedy</li>
+      </section>
+
+      <section>
+        <h2 class="font-display text-xl text-ink">
+          3. Refund Eligibility
+        </h2>
+        <p class="mt-2">
+          Refunds may be considered for verified cases of damaged, defective, incorrect, or missing products.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="font-display text-xl text-ink">
+          4. Refund Process
+        </h2>
+        <p class="mt-2">
+          Once your complaint is reviewed and approved, the eligible refund will be processed to your original payment method
+          or through another mutually agreed payment method.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="font-display text-xl text-ink">
+          5. Contact Us
+        </h2>
+        <p class="mt-2">
+          For refund, return, or exchange-related queries, please contact our customer support team.
+        </p>
+        <ul class="mt-2 list-none space-y-1">
+          <li>
+            WhatsApp:
+            <a
+              :href="WHATSAPP_URL"
+              class="text-gold-800 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >{{ WHATSAPP_DISPLAY }}</a>
+          </li>
+          <li>
+            Email:
+            <a
+              :href="`mailto:${SUPPORT_EMAIL}`"
+              class="text-gold-800 underline"
+            >{{ SUPPORT_EMAIL }}</a>
+          </li>
+          <li>
+            Or
+            <NuxtLink
+              to="/contact"
+              class="text-gold-800 underline"
+            >Contact</NuxtLink>
+            /
+            <NuxtLink
+              to="/store/orders"
+              class="text-gold-800 underline"
+            >My orders</NuxtLink>
+            (when signed in).
+          </li>
         </ul>
-        <p class="mt-2">
-          Please report issues within <strong class="text-ink">7 days</strong> of delivery with clear photos of the pack, shipping label, and order code.
+        <p class="mt-4 text-ink">
+          {{ vendor.brandName }} — Your Comfort and Trust Matter to Us!
+        </p>
+        <p class="mt-1 italic text-ink-muted">
+          We're just a message away!
         </p>
       </section>
 
       <section>
         <h2 class="font-display text-xl text-ink">
-          4. COD orders
-        </h2>
-        <p class="mt-2">
-          COD orders that are cancelled before dispatch incur no payment. Repeated refusals of COD deliveries may lead to prepaid-only checkout for future orders.
-          If you already paid a COD amount to the courier for a wrong/damaged item we approve for refund, we will process a refund after we receive the return (if required) and verify the claim.
-        </p>
-      </section>
-
-      <section>
-        <h2 class="font-display text-xl text-ink">
-          5. Prepaid Razorpay orders
-        </h2>
-        <p class="mt-2">
-          For approved refunds on Razorpay payments, we initiate a refund to the original payment method.
-          Banking timelines typically take <strong class="text-ink">5–10 business days</strong> after we process the refund in Razorpay
-          (sometimes longer depending on your bank or UPI app). Duplicate or failed charges should be reported promptly with the Razorpay payment ID.
-        </p>
-      </section>
-
-      <section>
-        <h2 class="font-display text-xl text-ink">
-          6. How to request
-        </h2>
-        <p class="mt-2">
-          Use
-          <NuxtLink
-            to="/contact"
-            class="text-gold-800 underline"
-          >Contact</NuxtLink>
-          and include: registered email, order code, Razorpay payment ID (if prepaid), and a short description with photos when relevant.
-          We respond as soon as practical during business hours.
-        </p>
-      </section>
-
-      <section>
-        <h2 class="font-display text-xl text-ink">
-          7. Related policies
+          Related policies
         </h2>
         <p class="mt-2">
           <NuxtLink
             to="/terms"
             class="text-gold-800 underline"
-          >Terms of Service</NuxtLink>
+          >Terms &amp; Conditions</NuxtLink>
           ·
           <NuxtLink
             to="/privacy"
