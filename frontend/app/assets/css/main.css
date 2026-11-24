@@ -120,6 +120,86 @@ button:disabled,
   }
 }
 
+/* —— Product features —— */
+.landing-features__grid {
+  display: grid;
+  gap: 0;
+}
+
+@media (min-width: 1024px) {
+  .landing-features__grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 3.5rem;
+    align-items: start;
+  }
+}
+
+.landing-features__eyebrow,
+.landing-features__headline,
+.landing-features__rule,
+.landing-features__body,
+.landing-features__figure,
+.landing-features__item {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.landing-features--visible .landing-features__eyebrow {
+  animation: rise-in 0.7s ease both;
+}
+
+.landing-features--visible .landing-features__headline {
+  animation: rise-in 0.75s ease 0.08s both;
+}
+
+.landing-features--visible .landing-features__rule {
+  animation: feature-rule 0.7s ease 0.18s both;
+}
+
+.landing-features--visible .landing-features__body {
+  animation: rise-in 0.8s ease 0.22s both;
+}
+
+.landing-features--visible .landing-features__figure {
+  animation: rise-in 0.9s ease 0.32s both;
+}
+
+.landing-features--visible .landing-features__item {
+  animation: rise-in 0.65s ease both;
+  animation-delay: calc(0.28s + (var(--feature-i, 0) * 0.09s));
+}
+
+.landing-features__figure {
+  aspect-ratio: 4 / 5;
+  max-width: 22rem;
+  background: var(--color-gold-300);
+}
+
+.landing-features__img {
+  animation: feature-kenburns 22s ease-in-out infinite alternate;
+  transform-origin: center 40%;
+}
+
+@keyframes feature-rule {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes feature-kenburns {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
 /* —— Gallery mosaic —— */
 .landing-mosaic {
   display: grid;
@@ -375,11 +455,22 @@ button:disabled,
   .landing-hero-poster,
   .landing-mosaic__media,
   .landing-reveal,
+  .landing-features__img,
   .anim-rise,
   .anim-rise-delay,
   .anim-rise-delay-2 {
     animation: none !important;
     transition: none !important;
+  }
+  .landing-features__eyebrow,
+  .landing-features__headline,
+  .landing-features__rule,
+  .landing-features__body,
+  .landing-features__figure,
+  .landing-features__item {
+    opacity: 1;
+    transform: none;
+    animation: none !important;
   }
   .landing-mosaic__cell:hover .landing-mosaic__media {
     transform: none;

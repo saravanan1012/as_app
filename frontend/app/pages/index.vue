@@ -92,6 +92,8 @@ onMounted(() => {
       </div>
     </section>
 
+    <LandingFeatures />
+
     <LandingGallery />
 
     <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">

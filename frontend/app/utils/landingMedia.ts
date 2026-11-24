@@ -22,14 +22,6 @@ export const landingGallery: LandingMedia[] = [
     span: 'wide'
   },
   {
-    id: 'camera-orbit',
-    type: 'video',
-    src: '/videos/camera-orbit-a.mp4',
-    poster: '/images/product-only.png',
-    alt: 'Product orbit camera reel',
-    span: 'tall'
-  },
-  {
     id: 'cream-display',
     type: 'image',
     src: '/images/cream-display.jpg',
@@ -57,14 +49,6 @@ export const landingGallery: LandingMedia[] = [
     src: '/images/anion-strip-a.jpg',
     alt: 'Sanitary napkin with anion strip',
     span: 'square'
-  },
-  {
-    id: 'drone-orbit',
-    type: 'video',
-    src: '/videos/drone-orbit-a.mp4',
-    poster: '/images/pack-flat-a.jpg',
-    alt: 'Drone orbit of napkin display',
-    span: 'wide'
   },
   {
     id: 'pack-a',
